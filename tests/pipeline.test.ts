@@ -20,6 +20,7 @@ import { buildPublish } from "../scripts/publish.ts";
 import { loadScript } from "../scripts/lib/script-io.ts";
 import { estimateDurationSec } from "../scripts/tts/mock.ts";
 import { needsSynthesis } from "../scripts/lib/fresh.ts";
+import { durationFromQuery, type AudioQuery } from "../scripts/tts/voicevox.ts";
 import { existsSync } from "node:fs";
 import { outDir } from "../scripts/lib/paths.ts";
 import { join } from "node:path";
@@ -340,5 +341,53 @@ describe("音声合成をやり直すかの判定（工程を飛ばす条件）"
 
   it("--force は無条件にやり直す", () => {
     expect(needsSynthesis({ ...base, force: true }).reason).toBe("force");
+  });
+});
+
+describe("VOICEVOX のモーラ音長からの尺（設計の検算に使う値）", () => {
+  const mora = (consonant: number | null, vowel: number) => ({
+    text: "あ",
+    consonant: consonant === null ? null : "k",
+    consonant_length: consonant,
+    vowel: "a",
+    vowel_length: vowel,
+    pitch: 5,
+  });
+
+  const query = (over: Partial<AudioQuery> = {}): AudioQuery => ({
+    accent_phrases: [{ moras: [mora(0.05, 0.1), mora(null, 0.2)], accent: 1, pause_mora: null }],
+    speedScale: 1,
+    pitchScale: 0,
+    intonationScale: 1,
+    volumeScale: 1,
+    prePhonemeLength: 0,
+    postPhonemeLength: 0,
+    outputSamplingRate: 24000,
+    outputStereo: false,
+    ...over,
+  });
+
+  it("子音長と母音長を足す（子音が無いモーラも扱える）", () => {
+    expect(durationFromQuery(query())).toBeCloseTo(0.35, 5);
+  });
+
+  it("speedScale で割る", () => {
+    expect(durationFromQuery(query({ speedScale: 2 }))).toBeCloseTo(0.175, 5);
+  });
+
+  it("前後の無音を足す", () => {
+    expect(
+      durationFromQuery(query({ prePhonemeLength: 0.05, postPhonemeLength: 0.15 })),
+    ).toBeCloseTo(0.55, 5);
+  });
+
+  it("フレーズ間のポーズも数える", () => {
+    const q = query();
+    const phrase = q.accent_phrases[0];
+    if (!phrase) {
+      throw new Error("fixture が壊れている");
+    }
+    phrase.pause_mora = mora(null, 0.3);
+    expect(durationFromQuery(q)).toBeCloseTo(0.65, 5);
   });
 });

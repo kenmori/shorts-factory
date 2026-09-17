@@ -13,7 +13,7 @@ import { config } from "../../config/pipeline.ts";
 import { wavDurationSec } from "../lib/wav.ts";
 import type { CacheFn, SynthSegment, TtsEngine, Utterance } from "./types.ts";
 
-type Mora = {
+export type Mora = {
   text: string;
   consonant: string | null;
   consonant_length: number | null;
@@ -22,14 +22,14 @@ type Mora = {
   pitch: number;
 };
 
-type AccentPhrase = {
+export type AccentPhrase = {
   moras: Mora[];
   accent: number;
   pause_mora: Mora | null;
   is_interrogative?: boolean;
 };
 
-type AudioQuery = {
+export type AudioQuery = {
   accent_phrases: AccentPhrase[];
   speedScale: number;
   pitchScale: number;
@@ -74,14 +74,18 @@ export const durationFromQuery = (q: AudioQuery): number => {
   return sec / q.speedScale + q.prePhonemeLength + q.postPhonemeLength;
 };
 
-const synthesizeChunk = async (text: string): Promise<Buffer> => {
+/**
+ * `/audio_query` の結果に config の調整値を載せて返す。
+ * モーラ音長が入っているので、ここが日本語の字幕タイミングの一次情報になる。
+ */
+export const audioQuery = async (text: string): Promise<AudioQuery> => {
   const query = (await (
     await request(`/audio_query?speaker=${vv.speaker}&text=${encodeURIComponent(text)}`, {
       method: "POST",
     })
   ).json()) as AudioQuery;
 
-  const tuned: AudioQuery = {
+  return {
     ...query,
     speedScale: vv.speedScale,
     pitchScale: vv.pitchScale,
@@ -89,14 +93,19 @@ const synthesizeChunk = async (text: string): Promise<Buffer> => {
     prePhonemeLength: vv.prePhonemeLength,
     postPhonemeLength: vv.postPhonemeLength,
   };
+};
 
+export const synthesizeQuery = async (query: AudioQuery): Promise<Buffer> => {
   const res = await request(`/synthesis?speaker=${vv.speaker}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "audio/wav" },
-    body: JSON.stringify(tuned),
+    body: JSON.stringify(query),
   });
   return Buffer.from(await res.arrayBuffer());
 };
+
+const synthesizeChunk = async (text: string): Promise<Buffer> =>
+  synthesizeQuery(await audioQuery(text));
 
 export const voicevoxEngine: TtsEngine = {
   id: "voicevox",

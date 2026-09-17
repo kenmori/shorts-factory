@@ -17,6 +17,7 @@
 | `npm run still -- --topic <id> --at 1.5` | 静止画1枚。フックの検証はこれで回す |
 | `npm run render -- --topic <id> [--section N] [--platform tiktok]` | レンダー（部分レンダー可） |
 | `npm run synthesize -- --topic <id> [--offline]` | 音声合成と字幕だけ |
+| `npm run tts:probe [-- --text "原稿"]` | TTS の返り値を目で見る。**ENGINE を繋いだら1回やる** |
 | `npm run script:prepare -- --topic <id>` | 一次ソース取得 → `.work/<id>/` |
 | `npm run script:verify -- --topic <id>` | zod + lint + dedupe |
 | `npm run publish -- --topic <id>` | 投稿テキスト生成 |

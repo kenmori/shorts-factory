@@ -16,6 +16,17 @@ cp .env.example .env          # api モードに切り替えるまで中身は�
 ```
 
 VOICEVOX を使う場合は ENGINE を起動しておく（`localhost:50021`）。
+アプリ（GUI）を開いている間は中の ENGINE が待ち受ける。繋がっているかの確認:
+
+```bash
+curl http://127.0.0.1:50021/version     # バージョンが返れば OK
+npm run tts:probe                       # 返り値を目で見る（下記）
+```
+
+**ENGINE を初めて繋いだら `npm run tts:probe` を1回やる。**
+読み（「Remotion」「4.0」がどう読まれるか）・モーラ音長と実測のズレ・
+1チャンクの尺を出す。台本を書く前に「何文字で何秒か」を掴んでおくと、
+尺が範囲外で lint に落ちる往復が減る。話者を変えたときもここで確認する。
 
 `config/pipeline.ts` を確認:
 
