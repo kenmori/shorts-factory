@@ -1,0 +1,134 @@
+{
+  "id": "2026-09-18-remotion-shorts-pipeline",
+  "locale": "ja",
+  "format": "news-digest",
+  "entity": "Remotion",
+  "version": "4.0",
+  "angle": "縦型ショートの量産",
+  "shelfLife": "evergreen",
+  "sourceDate": "2026-09-17",
+  "publishedAt": "2026-09-18",
+  "hook": "動画編集なしで週3本出せる",
+  "payoffSection": 4,
+  "sections": [
+    {
+      "heading": "ReactでMP4が出る",
+      "narration": "動画を作るのに|タイムラインは要りません|リアクトのコンポーネントと|シーエスエスで画面を組んで|レンダーすると|エムピーフォーが出てきます|秒数もフォントサイズも|全部ただの数値なので|書き換えれば|すぐに反映されます",
+      "telop": [
+        {
+          "text": "React → MP4",
+          "atSec": 0.6,
+          "durationSec": 3.4
+        },
+        {
+          "text": "秒数もただの数値",
+          "atSec": 6.5,
+          "durationSec": 3.4
+        }
+      ],
+      "visual": {
+        "kind": "text",
+        "lead": "タイムラインではなく\nコンポーネントで組む"
+      }
+    },
+    {
+      "heading": "1本から3媒体",
+      "narration": "縦型の動画で厄介なのは|ユーアイが文字に被る位置が|媒体ごとに違うことです|セーフエリアを数値にして|プロパティで渡せば|同じ台本から|ティックトックと|ショートとリールズを|3本まとめて書き出せます|作り直しが要りません",
+      "telop": [
+        {
+          "text": "safeArea を props に",
+          "atSec": 0.6,
+          "durationSec": 3.4
+        },
+        {
+          "text": "3媒体を1コマンド",
+          "atSec": 6.5,
+          "durationSec": 3.4
+        }
+      ],
+      "visual": {
+        "kind": "chart",
+        "data": {
+          "unit": "本",
+          "bars": [
+            {
+              "label": "1コマンドで出る本数",
+              "value": 3
+            },
+            {
+              "label": "台本の数",
+              "value": 1
+            },
+            {
+              "label": "手で編集する本数",
+              "value": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "heading": "音声を作り直さない",
+      "narration": "音声合成で一番効くのは|キャッシュの持ち方です|原稿の文面だけを鍵にして|音声ファイルを保存すると|字幕の割れ方を|何度直しても|音声は作り直されません|ここが分かれていないと|見た目を詰めるたびに|課金と待ち時間が|積み上がります",
+      "telop": [
+        {
+          "text": "鍵は原稿の文面だけ",
+          "atSec": 0.6,
+          "durationSec": 3.4
+        },
+        {
+          "text": "字幕を直しても無料",
+          "atSec": 6.5,
+          "durationSec": 3.4
+        }
+      ],
+      "visual": {
+        "kind": "code",
+        "before": "key = 原稿 + 字幕の区切り\n→ 区切りを直すたび再生成",
+        "after": "key = 原稿だけ\n→ 区切りは何度でも無料",
+        "lang": "text"
+      }
+    },
+    {
+      "heading": "動画編集をしない",
+      "narration": "結局この作り方の要点は|動画編集をしないことです|直すのは台本とコードで|画面は毎回|同じ手順で出てきます|個人と従業員3名以下なら|このツールは無償で|商用にも使えます|だから編集ソフトを開かずに|週3本を続けられます",
+      "telop": [
+        {
+          "text": "直すのは台本とコード",
+          "atSec": 0.6,
+          "durationSec": 3.4
+        },
+        {
+          "text": "個人は無償で商用可",
+          "atSec": 6.5,
+          "durationSec": 3.4
+        }
+      ],
+      "visual": {
+        "kind": "text",
+        "lead": "直すのは\n動画ではなく台本"
+      }
+    }
+  ],
+  "outro": "台本はコードなので|次の1本は|今日より速く出せます",
+  "bgm": "placeholder-pad.wav",
+  "totalDurationSec": 70,
+  "sources": [
+    {
+      "url": "https://registry.npmjs.org/remotion/latest",
+      "fetchedAt": "2026-09-17T23:05:00+09:00",
+      "excerpt": "{\"name\":\"remotion\",\"version\":\"4.0.526\",\"description\":\"Make videos programmatically\",\"license\":\"SEE LICENSE IN LICENSE.md\",\"homepage\":\"https://www.remotion.dev/docs/remotion\"}"
+    },
+    {
+      "url": "https://github.com/remotion-dev/remotion/blob/main/LICENSE.md",
+      "fetchedAt": "2026-09-17T23:05:00+09:00",
+      "excerpt": "You are eligible to use Remotion for free if you are: an individual, a for-profit organization with up to 3 employees, a non-profit or not-for-profit organization, evaluating whether Remotion is a good fit.（remotion@4.0.526 に同梱の LICENSE.md より）"
+    }
+  ],
+  "facts": {
+    "remotionVersion": "4.0.526",
+    "license": "個人・従業員3名以下の営利組織・非営利組織は無償で商用利用可（Free License）",
+    "platforms": "TikTok / YouTube Shorts / Instagram Reels",
+    "sourceDate": "2026-09-17"
+  }
+}

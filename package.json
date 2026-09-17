@@ -1,0 +1,50 @@
+{
+  "name": "shorts-factory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "today": "tsx scripts/today.ts",
+    "dev": "remotion studio src/index.ts",
+    "render": "tsx scripts/render.ts",
+    "still": "tsx scripts/still.ts",
+    "synthesize": "tsx scripts/synthesize.ts",
+    "script:prepare": "tsx scripts/script-prepare.ts",
+    "script:generate": "tsx scripts/script-generate.ts",
+    "script:verify": "tsx scripts/script-verify.ts",
+    "publish": "tsx scripts/publish.ts",
+    "publish-check": "tsx scripts/publish-check.ts",
+    "snapshot": "tsx scripts/snapshot.ts",
+    "snapshot:check": "tsx scripts/snapshot.ts --check",
+    "fonts:sync": "tsx scripts/fonts-sync.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "postinstall": "tsx scripts/fonts-sync.ts",
+    "record": "tsx scripts/record-published.ts"
+  },
+  "dependencies": {
+    "@fontsource/noto-sans-jp": "5.3.0",
+    "@remotion/bundler": "4.0.526",
+    "@remotion/captions": "4.0.526",
+    "@remotion/cli": "4.0.526",
+    "@remotion/fonts": "4.0.526",
+    "@remotion/layout-utils": "^4.0.526",
+    "@remotion/media-utils": "4.0.526",
+    "@remotion/renderer": "4.0.526",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.526",
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.1",
+    "@types/react": "19.2.2",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vitest": "5.0.1"
+  }
+}

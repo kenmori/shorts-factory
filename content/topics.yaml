@@ -1,0 +1,48 @@
+## ネタのバックログ。
+##
+## `npm run today` は status が pending / scripted のうち score が最高のものを1件選ぶ。
+## 動画の id は <投稿日>-<slug> で組む（slug に日付を持たせない。寝かせたネタが腐るため）。
+##
+## 配分は hot 1本 + evergreen 2本。**evergreen を常に5〜10本プールしておく。**
+## 速報だけで回すと、ネタが出ない週に破綻する。
+topics:
+  - slug: remotion-shorts-pipeline
+    title: 動画をコードで書く（Remotion で縦型ショートを量産する）
+    score: 90
+    status: scripted
+    format: news-digest
+    shelfLife: evergreen
+    entity: Remotion
+    version: "4.0"
+    angle: 縦型ショートの量産
+    sources:
+      - https://registry.npmjs.org/remotion/latest
+      - https://github.com/remotion-dev/remotion/blob/main/LICENSE.md
+    notes: M0 の手書きサンプル。ライセンスの記述は remotion@4.0.526 に同梱の LICENSE.md から取った。
+    usedBy: 2026-09-18-remotion-shorts-pipeline
+  - slug: voicevox-mora-timing
+    title: 日本語の字幕同期はモーラ単位が正解
+    score: 70
+    status: pending
+    format: news-digest
+    shelfLife: evergreen
+    entity: VOICEVOX
+    version: null
+    angle: 字幕の同期
+    sources:
+      - https://registry.npmjs.org/@remotion/captions/latest
+    notes: モーラ音長で字幕を割る話。ElevenLabs の正規化との比較を入れる。 収録キャラの利用規約・クレジット表記を確認してから出す。
+    usedBy: null
+  - slug: content-addressed-cache
+    title: 生成AIのコマンドは内容アドレスキャッシュで安くなる
+    score: 60
+    status: pending
+    format: news-digest
+    shelfLife: evergreen
+    entity: shorts-factory
+    version: null
+    angle: キャッシュ設計
+    sources:
+      - https://registry.npmjs.org/remotion/latest
+    notes: 同じ入力で課金しない話。字幕の割れ方と音声のキャッシュキーを分ける設計が主題。
+    usedBy: null

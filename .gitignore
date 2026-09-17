@@ -1,0 +1,23 @@
+out/
+.env
+node_modules/
+
+# 内容アドレスキャッシュ。大きいので入れない
+.cache/
+
+# プロンプト束。再生成可能
+.work/
+
+# 生成物（台本 JSON から作り直せる）
+content/timeline/
+content/captions/
+content/publish/
+public/audio/
+public/props/
+
+# npm run fonts:sync（postinstall）が置く
+public/fonts/
+
+# 大きい素材
+assets/screencasts/
+public/screencasts/

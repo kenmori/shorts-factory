@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      # 台本の lint（3.5節のリテンション設計）。台本を1本ずつ検証する。
+      # 音声エンジンが要らない静的チェックだけなのでここで回せる。
+      - name: script lint
+        run: |
+          shopt -s nullglob
+          for f in content/scripts/*.json; do
+            id="$(basename "$f" .json)"
+            npm run script:verify -- --topic "$id"
+          done
+
+      # レンダーを伴う検証（npm run snapshot:check）はここでは回さない。
+      # 1本 約2分 × 媒体数がかかるうえ、ローカルと CI で Chromium の版が違うと
+      # PNG が一致しない。スナップショットは手元で撮って git diff で見る。
