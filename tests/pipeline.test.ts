@@ -19,6 +19,7 @@ import { lintScript, lintTimeline } from "../scripts/lint-script.ts";
 import { buildPublish } from "../scripts/publish.ts";
 import { loadScript } from "../scripts/lib/script-io.ts";
 import { estimateDurationSec } from "../scripts/tts/mock.ts";
+import { needsSynthesis } from "../scripts/lib/fresh.ts";
 import { existsSync } from "node:fs";
 import { outDir } from "../scripts/lib/paths.ts";
 import { join } from "node:path";
@@ -297,4 +298,47 @@ describe("尺の読み取り", () => {
       expect(sec).toBeGreaterThan(60);
     },
   );
+});
+
+describe("音声合成をやり直すかの判定（工程を飛ばす条件）", () => {
+  const base = {
+    force: false,
+    scriptAt: 1000,
+    timelineAt: 2000,
+    propsAt: 2000,
+    timelineEngine: "voicevox",
+    wantEngine: "voicevox",
+  };
+
+  it("台本もエンジンも変わっていなければ飛ばす", () => {
+    expect(needsSynthesis(base).needed).toBe(false);
+  });
+
+  it("台本が新しければやり直す", () => {
+    expect(needsSynthesis({ ...base, scriptAt: 3000 })).toEqual({
+      needed: true,
+      reason: "script-changed",
+    });
+  });
+
+  it("エンジンが変わればやり直す（mock → voicevox で取り残されないこと）", () => {
+    expect(needsSynthesis({ ...base, timelineEngine: "mock" })).toEqual({
+      needed: true,
+      reason: "engine-changed",
+    });
+  });
+
+  it("タイムラインが無ければやり直す", () => {
+    expect(needsSynthesis({ ...base, timelineAt: 0, timelineEngine: null }).reason).toBe(
+      "no-timeline",
+    );
+  });
+
+  it("props だけ無い場合もやり直す（Studio が読めない）", () => {
+    expect(needsSynthesis({ ...base, propsAt: 0 }).reason).toBe("no-timeline");
+  });
+
+  it("--force は無条件にやり直す", () => {
+    expect(needsSynthesis({ ...base, force: true }).reason).toBe("force");
+  });
 });

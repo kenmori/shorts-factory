@@ -18,7 +18,7 @@
 import { join } from "node:path";
 import { config } from "../config/pipeline.ts";
 import { getString, getTopic, parseArgs, type Args } from "./lib/args.ts";
-import { isFresh, mtime, newestMtime } from "./lib/fresh.ts";
+import { isFresh, mtime, needsSynthesis, newestMtime } from "./lib/fresh.ts";
 import { Halt, log, runMain } from "./lib/log.ts";
 import { isEntry } from "./lib/main.ts";
 import {
@@ -30,7 +30,7 @@ import {
   ROOT,
 } from "./lib/paths.ts";
 import { buildId, loadTopics, markTopic, pickNextTopic, slugFromId } from "./lib/topics.ts";
-import { scriptExists } from "./lib/script-io.ts";
+import { loadTimeline, scriptExists, timelineExists } from "./lib/script-io.ts";
 import { prepareTopic } from "./script-prepare.ts";
 import { generateScript } from "./script-generate.ts";
 import { printFindings, verifyScript } from "./script-verify.ts";
@@ -114,16 +114,25 @@ export const today = async (options: TodayOptions = {}): Promise<string> => {
   markTopic(slugFromId(id), "scripted", id);
 
   // --- 5. 音声合成 → 字幕 ---
-  const scriptAt = mtime(scriptPath(id));
-  const synthFresh =
-    isFresh(timelinePath(id), [scriptAt]) && isFresh(propsPath(id), [scriptAt]);
-  if (force || !synthFresh) {
+  const wantEngine = options.engineId ?? config.tts;
+  const synth = needsSynthesis({
+    force,
+    scriptAt: mtime(scriptPath(id)),
+    timelineAt: mtime(timelinePath(id)),
+    propsAt: mtime(propsPath(id)),
+    timelineEngine: timelineExists(id) ? loadTimeline(id).engine : null,
+    wantEngine,
+  });
+  if (synth.needed) {
+    if (synth.reason === "engine-changed") {
+      log.info(`エンジンが変わった（→ ${wantEngine}）ので音声を作り直す`);
+    }
     await synthesizeTopic(id, {
       offline: options.offline === true,
       ...(options.engineId ? { engineId: options.engineId } : {}),
     });
   } else {
-    log.skip("音声とタイムラインは最新（台本が変わっていない）");
+    log.skip("音声とタイムラインは最新（台本もエンジンも変わっていない）");
   }
 
   // --- 6. レンダー ---
