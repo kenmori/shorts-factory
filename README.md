@@ -27,6 +27,15 @@ tts: "voicevox"          // ローカル完結・課金ゼロ
 音声エンジンを立てずに配線だけ確認したいときは `--tts mock`（無音・尺は概算）。
 **投稿用には使えない。** publish-check が落とす。
 
+```bash
+npm run today -- --tts mock    # 音声エンジン無しで最後まで通す（配線の確認）
+```
+
+`npm run dev`（Studio）は `public/props/<id>.json` を読む。これは音声合成の生成物
+なので、**クローン直後は一度 `npm run today` か `npm run synthesize` を回してから**
+Studio を開く（無ければ「先に音声合成を回す」というエラーが出る）。
+Studio の props エディタで `topicId` を書き換えれば別の台本に切り替わる。
+
 ---
 
 ## 日次の流れ
