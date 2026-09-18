@@ -247,7 +247,9 @@ export const lintTimeline = (script: Script, timeline: Timeline): Finding[] => {
   events.push({ sec: timeline.outro.startSec, what: "outro" });
   events.sort((a, b) => a.sec - b.sec);
 
-  let worst = { gap: 0, at: 0, what: "" };
+  // 上限を超えた区間は**全部**出す。最悪の1箇所だけ報告すると、
+  // 直すたびに次が出てきて往復が増える
+  const gaps: { gap: number; at: number; what: string }[] = [];
   for (let i = 1; i < events.length; i++) {
     const prev = events[i - 1];
     const cur = events[i];
@@ -255,16 +257,24 @@ export const lintTimeline = (script: Script, timeline: Timeline): Finding[] => {
       continue;
     }
     const gap = cur.sec - prev.sec;
-    if (gap > worst.gap) {
-      worst = { gap, at: prev.sec, what: cur.what };
+    if (gap > config.maxVisualStillSec) {
+      gaps.push({ gap, at: prev.sec, what: cur.what });
     }
   }
-  if (worst.gap > config.maxVisualStillSec) {
+  gaps.sort((a, b) => b.gap - a.gap);
+
+  if (gaps.length > 0) {
+    const listed = gaps
+      .slice(0, 6)
+      .map((g) => `${g.at.toFixed(1)}秒から${g.gap.toFixed(2)}秒（次は ${g.what}）`);
+    const rest = gaps.length > listed.length ? `ほか${gaps.length - listed.length}箇所` : "";
     add(
       "error",
       "visual-still",
-      `${worst.at.toFixed(1)}秒 から ${worst.gap.toFixed(1)}秒 画面が動かない（上限 ${config.maxVisualStillSec}秒。次の変化は ${worst.what}）。` +
-        '"|" を増やして字幕を割るか、テロップを足す',
+      `画面が ${config.maxVisualStillSec}秒 を超えて動かない箇所が ${gaps.length}個:\n           ` +
+        [...listed, rest].filter((x) => x !== "").join("\n           ") +
+        '\n           → その手前のチャンクを "|" で割る（セクション末尾は末尾余白 ' +
+        `${config.sectionTailSec}秒 と合算される）`,
     );
   }
 
