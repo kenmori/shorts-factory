@@ -15,7 +15,8 @@ import { getTopic, parseArgs } from "./lib/args.ts";
 import { log, runMain } from "./lib/log.ts";
 import { isEntry } from "./lib/main.ts";
 import { mp4DurationSec } from "./lib/mp4.ts";
-import { outDir, PUBLIC_DIR, publishPath } from "./lib/paths.ts";
+import { outDir, PUBLIC_DIR, publishPath, timelinePath } from "./lib/paths.ts";
+import { mtime } from "./lib/fresh.ts";
 import {
   loadPublish,
   loadScript,
@@ -97,6 +98,15 @@ export const publishCheck = (id: string): boolean => {
         }
         if (statSync(path).size < 100_000) {
           return `${path} が小さすぎる（レンダーが途中で落ちている）`;
+        }
+        // 尺のズレを疑う前に「古いだけ」かを見る。
+        // 台本や音声を直したあとレンダーしていない場合がほとんどなので、
+        // 原因を言い当てないと直し方が分からない
+        if (statSync(path).mtimeMs < mtime(timelinePath(id))) {
+          return (
+            `${platform}.mp4 がタイムラインより古い（音声や台本を直したあとレンダーしていない）。` +
+            `npm run render -- --topic ${id}`
+          );
         }
         const actual = mp4DurationSec(path);
         if (actual < config.minPublishableDurationSec) {
