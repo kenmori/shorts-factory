@@ -27,8 +27,17 @@
         }
       ],
       "visual": {
-        "kind": "text",
-        "lead": "タイムラインではなく\nコンポーネントで組む"
+        "kind": "image",
+        "shots": [
+          "placeholder-1.png",
+          "placeholder-2.png",
+          "placeholder-3.png",
+          "placeholder-4.png",
+          "placeholder-5.png",
+          "placeholder-6.png"
+        ],
+        "lead": "タイムラインではなく\nコンポーネントで組む",
+        "fit": "cover"
       }
     },
     {

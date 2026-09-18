@@ -6,7 +6,7 @@
  * node:zlib だけで済ませる。対応は 8bit / RGB・RGBA / 非インタレース
  * （Remotion の renderStill が出すもの）。
  */
-import { inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 
 export type Image = {
   width: number;
@@ -142,4 +142,63 @@ export const brightPixelRatio = (image: Image, threshold = 140): number => {
     }
   }
   return bright / total;
+};
+
+/** CRC32（PNG のチャンクに必要） */
+const crcTable = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+const crc32 = (buf: Buffer): number => {
+  let c = 0xffffffff;
+  for (const byte of buf) {
+    c = (crcTable[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+};
+
+const chunk = (type: string, body: Buffer): Buffer => {
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(body.length, 0);
+  head.write(type, 4, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, "ascii"), body])), 0);
+  return Buffer.concat([head, body, crc]);
+};
+
+/**
+ * PNG を書き出す（8bit RGBA / フィルタなし）。
+ * 画像ライブラリを足さずに済ませるため。仮素材の生成と検査の両方で使う。
+ */
+export const encodePng = (image: Image): Buffer => {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(image.width, 0);
+  ihdr.writeUInt32BE(image.height, 4);
+  ihdr.writeUInt8(8, 8);
+  ihdr.writeUInt8(6, 9); // RGBA
+
+  const stride = image.width * 4;
+  const raw = Buffer.alloc((stride + 1) * image.height);
+  for (let y = 0; y < image.height; y++) {
+    raw[y * (stride + 1)] = 0; // フィルタ 0
+    Buffer.from(image.pixels.subarray(y * stride, (y + 1) * stride)).copy(
+      raw,
+      y * (stride + 1) + 1,
+    );
+  }
+
+  return Buffer.concat([
+    Buffer.from(SIGNATURE),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 };

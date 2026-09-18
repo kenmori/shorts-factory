@@ -47,6 +47,19 @@ export const rectSchema = z.object({
 
 export const visualSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), lead: z.string().min(1) }),
+  /**
+   * 画像。**2枚以上置くと字幕のチャンク境界で切り替わる。**
+   * 1セクション1枚だと68秒で視覚が4回しか変わらず飽きるため。
+   * ファイルは public/shots/ に置く（実スクショ / 図 / 生成画像）。
+   */
+  z.object({
+    kind: z.literal("image"),
+    shots: z.array(z.string().min(1)).min(1).max(8),
+    /** 画像の上に重ねる短い文。省略可 */
+    lead: z.string().min(1).optional(),
+    /** cover = 枠を埋める（はみ出しは切る） / contain = 全体を見せる（余白が出る） */
+    fit: z.enum(["cover", "contain"]).default("cover"),
+  }),
   z.object({ kind: z.literal("chart"), data: chartDataSchema }),
   z.object({
     kind: z.literal("code"),

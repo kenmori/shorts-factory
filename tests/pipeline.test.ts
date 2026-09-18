@@ -24,6 +24,7 @@ import { durationFromQuery, pickStyleId, type AudioQuery, type SpeakerInfo } fro
 import { creditFor } from "../scripts/publish.ts";
 import { config } from "../config/pipeline.ts";
 import { clampFontSize } from "../src/lib/fit.ts";
+import { shotBoundaries, shotSpans } from "../src/lib/shots.ts";
 import { brightPixelRatio, decodePng, luminance } from "../scripts/lib/png.ts";
 import { findDropouts, MIN_BRIGHT_RATIO } from "../scripts/check-frames.ts";
 import { deflateSync } from "node:zlib";
@@ -205,6 +206,31 @@ describe("lint（リテンション設計）", () => {
   it("hookStyle が導出値と違うと落ちる", () => {
     const wrong = HOOK_STYLES.find((s) => s !== deriveVariant(sample.id).hookStyle);
     expect(rules({ ...sample, hookStyle: wrong })).toContain("hook-style");
+  });
+
+  it("画像が無ければ落ちる", () => {
+    const sections = sample.sections.map((s, i) =>
+      i === 0
+        ? {
+            ...s,
+            visual: { kind: "image" as const, shots: ["ない.png", "placeholder-1.png"], fit: "cover" as const },
+          }
+        : s,
+    );
+    expect(rules({ ...sample, sections })).toContain("shot-missing");
+  });
+
+  it("画像1枚は warn（error にはしない）", () => {
+    const sections = sample.sections.map((s, i) =>
+      i === 0
+        ? { ...s, visual: { kind: "image" as const, shots: ["placeholder-1.png"], fit: "cover" as const } }
+        : s,
+    );
+    const findings = lintScript(scriptSchema.parse({ ...sample, sections }));
+    expect(findings.filter((f) => f.level === "error").map((f) => f.rule)).not.toContain(
+      "shot-count",
+    );
+    expect(findings.map((f) => f.rule)).toContain("shot-count");
   });
 
   it("未実装の visual（screencast）は落ちる", () => {
@@ -725,5 +751,70 @@ describe("mp4 の映像と音声の同期", () => {
 
   it("映像か音声が欠けている mp4 は落とす", () => {
     expect(() => mp4AvSync({ durationSec: 10, tracks: [] })).toThrow();
+  });
+});
+
+describe("画像の切り替え時刻", () => {
+  // 字幕が2秒ごとに12個あるセクション（24秒）を想定
+  const captionStartsSec = Array.from({ length: 12 }, (_, i) => i * 2);
+  const durationSec = 24;
+
+  it("1枚なら切り替えない", () => {
+    expect(shotBoundaries({ captionStartsSec, durationSec, shotCount: 1 })).toEqual([0]);
+  });
+
+  it("切り替えは字幕の開始時刻に揃う（喋りの途中で変わらない）", () => {
+    const boundaries = shotBoundaries({ captionStartsSec, durationSec, shotCount: 3 });
+    expect(boundaries).toEqual([0, 8, 16]);
+    for (const b of boundaries.slice(1)) {
+      expect(captionStartsSec).toContain(b);
+    }
+  });
+
+  it("必ず0秒から始まり、単調増加する", () => {
+    for (const shotCount of [2, 3, 4, 5, 6, 8]) {
+      const boundaries = shotBoundaries({ captionStartsSec, durationSec, shotCount });
+      expect(boundaries).toHaveLength(shotCount);
+      expect(boundaries[0]).toBe(0);
+      for (let i = 1; i < boundaries.length; i++) {
+        expect(boundaries[i] ?? 0).toBeGreaterThan(boundaries[i - 1] ?? 0);
+      }
+    }
+  });
+
+  it("字幕が画像より少なければ尺を等分する", () => {
+    expect(shotBoundaries({ captionStartsSec: [0, 5], durationSec: 12, shotCount: 4 })).toEqual([
+      0, 3, 6, 9,
+    ]);
+  });
+
+  it("字幕が無くても落ちない", () => {
+    expect(shotBoundaries({ captionStartsSec: [], durationSec: 10, shotCount: 2 })).toEqual([0, 5]);
+  });
+
+  it("尺の合計がセクションの尺と一致する（隙間も重なりも作らない）", () => {
+    const spans = shotSpans(
+      shotBoundaries({ captionStartsSec, durationSec, shotCount: 5 }),
+      durationSec,
+    );
+    expect(spans).toHaveLength(5);
+    const total = spans.reduce((a, s) => a + s.durationSec, 0);
+    expect(total).toBeCloseTo(durationSec, 5);
+    spans.forEach((span, i) => {
+      if (i > 0) {
+        const prev = spans[i - 1];
+        expect(span.startSec).toBeCloseTo((prev?.startSec ?? 0) + (prev?.durationSec ?? 0), 5);
+      }
+    });
+  });
+
+  it("画像1枚あたりの尺が2秒前後になる（視覚変化の上限に収まる枚数を選べる）", () => {
+    const spans = shotSpans(
+      shotBoundaries({ captionStartsSec, durationSec, shotCount: 12 }),
+      durationSec,
+    );
+    for (const span of spans) {
+      expect(span.durationSec).toBeLessThanOrEqual(config.maxVisualStillSec);
+    }
   });
 });

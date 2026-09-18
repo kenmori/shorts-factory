@@ -10,7 +10,7 @@
  */
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import type { Section } from "../schema/script.ts";
-import { FONT_FAMILY, SPACING } from "../design/tokens.ts";
+import { FONT_FAMILY, SPACING, subtitleBandHeight } from "../design/tokens.ts";
 import { progressAt } from "../lib/frames.ts";
 import { SafeFrame } from "./Background.tsx";
 import { Progress } from "./Progress.tsx";
@@ -97,7 +97,7 @@ export const SectionCard: React.FC<{
   /** 直前のセクションに重ねて出てくるフレーム数。境界で切れ目を作らないため */
   enterFrames: number;
 }> = ({ index, section, enterFrames }) => {
-  const { palette } = useShort();
+  const { palette, type } = useShort();
   const frame = useCurrentFrame();
   const enter = progressAt(frame, 0, Math.max(1, enterFrames));
 
@@ -110,18 +110,20 @@ export const SectionCard: React.FC<{
         transform: `translateY(${(1 - enter) * 48}px)`,
       }}
     >
-      <SafeFrame>
+      {/* 字幕の帯の分を空ける。空けないと画像やテロップが字幕と重なる */}
+      <SafeFrame reserveBottom={subtitleBandHeight(type)}>
         <Heading index={index} text={section.heading} />
         <div
           style={{
             flex: 1,
+            minHeight: 0,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
             gap: SPACING.blockGap,
           }}
         >
-          <VisualSlot visual={section.visual} />
+          <VisualSlot visual={section.visual} sectionIndex={index} />
           <Telops telops={section.telop} />
         </div>
         <Progress current={index} />

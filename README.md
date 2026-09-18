@@ -120,6 +120,18 @@ Studio のプレビューと最終レンダーは一致しないので、**実�
 > `safe-area.ts` の数値は**まだ未実測**（`verified: false`）。
 > 初回の実機確認で実測値に差し替える。publish-check が毎回そのことを出す。
 
+### 画像素材
+
+`public/shots/` に置いた画像を `visual: { kind: "image", shots: [...] }` で使う。
+**字幕の区切りに合わせて自動で切り替わる**ので、秒数の指定は要らない。
+
+```bash
+npx tsx scripts/dev/make-placeholder-shots.ts   # 仮素材を作り直す
+```
+
+いま入っているのは仮の絵（`placeholder-*.png`）。**実素材に差し替える。**
+何を置くかは `public/shots/README.md`。
+
 ### 3. 直す
 
 修正コストが種類で大きく違う。

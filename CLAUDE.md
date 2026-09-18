@@ -54,6 +54,11 @@
 - **セーフエリアの数値を推測で書かない。** 実機確認した値だけを
   `safe-area.ts` に入れ、`verified: true` にする
 - 秒数をテンプレに書かない。尺は `content/timeline/<id>.json`（生成物）から来る
+- **画像は `public/shots/` に置き、`visual: { kind: "image", shots: [...] }` で使う。**
+  切り替えの時刻は字幕のチャンク境界から自動で決まる（`src/lib/shots.ts`）。
+  秒数をコンポーネントに書かない
+- 字幕は画面下の独立したレイヤー。セクションの内容が下まで伸びると重なるので、
+  `subtitleBandHeight()` の分を `SafeFrame` の `reserveBottom` で空ける
 - **冒頭に無音の静止画期間を作らない。** ナレーションは0秒から流し、フックは
   その上に重ねる（`config.hookOverlaySec`）。lint の `opening-silence` が落とす
 - フォントは `public/fonts/` のローカルファイルを読む。

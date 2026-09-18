@@ -126,3 +126,12 @@ export const SPACING = {
   radius: 28,
   borderWidth: 6,
 } as const;
+
+/**
+ * 字幕の帯が占める高さ（2行分 + 余白）。
+ *
+ * 字幕は画面下の独立したレイヤーなので、セクションの内容が下まで伸びると
+ * **重なる**（画像を入れた途端に起きた）。セクション側はこの分を空ける。
+ */
+export const subtitleBandHeight = (type: Typography): number =>
+  type.subtitleSize * type.subtitleLineHeight * 2 + SPACING.gutter / 2;

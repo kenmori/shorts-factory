@@ -19,7 +19,7 @@ import {
   loadPublished,
   variantRepeatsThreeTimes,
 } from "./lib/published.ts";
-import { PUBLIC_BGM_DIR } from "./lib/paths.ts";
+import { PUBLIC_BGM_DIR, PUBLIC_DIR } from "./lib/paths.ts";
 
 export type Finding = {
   level: "error" | "warn";
@@ -168,6 +168,25 @@ export const lintScript = (script: Script): Finding[] => {
     add("error", "bgm-missing", `public/bgm/${script.bgm} が無い`);
   }
   for (const [i, section] of script.sections.entries()) {
+    if (section.visual.kind === "image") {
+      const missing = section.visual.shots.filter(
+        (shot) => !existsSync(join(PUBLIC_DIR, "shots", shot)),
+      );
+      if (missing.length > 0) {
+        add(
+          "error",
+          "shot-missing",
+          `セクション${i + 1} の画像が無い: ${missing.map((m) => `public/shots/${m}`).join(", ")}`,
+        );
+      }
+      if (section.visual.shots.length === 1) {
+        add(
+          "warn",
+          "shot-count",
+          `セクション${i + 1} の画像が1枚だけ。2枚以上置くと字幕の区切りで切り替わる（飽き対策）`,
+        );
+      }
+    }
     if (section.visual.kind === "screencast") {
       add(
         "error",

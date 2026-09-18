@@ -20,14 +20,20 @@ export const Background: React.FC = () => {
   );
 };
 
-/** セーフエリアの内側に content を置く枠 */
-export const SafeFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+/**
+ * セーフエリアの内側に content を置く枠。
+ * `reserveBottom` は字幕の帯のために追加で空ける高さ（セクションで使う）。
+ */
+export const SafeFrame: React.FC<{ children: React.ReactNode; reserveBottom?: number }> = ({
+  children,
+  reserveBottom = 0,
+}) => {
   const { safeArea } = useShort();
   return (
     <AbsoluteFill
       style={{
         paddingTop: safeArea.top,
-        paddingBottom: safeArea.bottom,
+        paddingBottom: safeArea.bottom + reserveBottom,
         paddingLeft: safeArea.left,
         paddingRight: safeArea.right,
         display: "flex",

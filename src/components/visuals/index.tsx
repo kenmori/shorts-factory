@@ -1,12 +1,25 @@
 import type { Visual } from "../../schema/script.ts";
 import { ChartVisual } from "./ChartVisual.tsx";
 import { CodeVisual } from "./CodeVisual.tsx";
+import { ImageVisual } from "./ImageVisual.tsx";
 import { TextVisual } from "./TextVisual.tsx";
 
-export const VisualSlot: React.FC<{ visual: Visual }> = ({ visual }) => {
+export const VisualSlot: React.FC<{ visual: Visual; sectionIndex: number }> = ({
+  visual,
+  sectionIndex,
+}) => {
   switch (visual.kind) {
     case "text":
       return <TextVisual lead={visual.lead} />;
+    case "image":
+      return (
+        <ImageVisual
+          shots={visual.shots}
+          fit={visual.fit}
+          {...(visual.lead === undefined ? {} : { lead: visual.lead })}
+          sectionIndex={sectionIndex}
+        />
+      );
     case "chart":
       return <ChartVisual data={visual.data} />;
     case "code":
