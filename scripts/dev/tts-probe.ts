@@ -115,11 +115,31 @@ const main = async (): Promise<void> => {
     log.ok("モーラ音長と実測はフレーム以下で一致。チャンク単位の設計の前提は成立している");
   }
 
+  // --- 台本を書くときに必要な数値を出す ---
+  const totalChars = [...text.split("|").join("")].length;
+  const silencePerChunk = vv.prePhonemeLength + vv.postPhonemeLength;
+  // チャンクごとの前後無音を除いた、正味の発話速度
+  const secPerChar = (wavTotal - chunks.length * silencePerChunk) / totalChars;
+
   const [min, max] = config.durationRangeSec;
-  const charsPerSec = [...text.split("|").join("")].length / wavTotal;
+  // 典型的な形（4セクション + outro）の末尾余白を引く
+  const tails = config.sectionTailSec * 5;
+  const budget = (target: number): number => target - config.hookDurationSec - tails;
+  /** 尺 target 秒に収まる文字数。チャンク長 perChunk 文字で割った場合 */
+  const charsFor = (target: number, perChunk: number): number =>
+    Math.round(budget(target) / (secPerChar + silencePerChunk / perChunk));
+
+  const limit = (allowance: number): number =>
+    Math.floor((allowance - silencePerChunk) / secPerChar);
+
+  log.step("台本を書くときの目安（この話者・この速度での実測値）");
+  log.info(`正味の発話速度: ${(1 / secPerChar).toFixed(1)}文字/秒（前後の無音 ${silencePerChunk}秒/チャンクを除く）`);
+  log.info(`1チャンクの上限: ${limit(config.maxVisualStillSec)}文字（視覚変化 ${config.maxVisualStillSec}秒の lint）`);
   log.info(
-    `この速度なら ${min}〜${max}秒 の動画に必要なナレーションは ` +
-      `${Math.round((min - config.hookDurationSec) * charsPerSec)}〜${Math.round((max - config.hookDurationSec) * charsPerSec)}文字`,
+    `セクション末尾のチャンク: ${limit(config.maxVisualStillSec - config.sectionTailSec)}文字（末尾余白 ${config.sectionTailSec}秒と合算されるため）`,
+  );
+  log.info(
+    `ナレーション全体: ${charsFor(min, 9)}〜${charsFor(max, 9)}文字（${min}〜${max}秒 / 9文字のチャンクで割った場合）`,
   );
   log.blank();
   log.info(`音声: ${dir}/  ← 聞いて確かめる`);
