@@ -164,6 +164,7 @@ export const today = async (options: TodayOptions = {}): Promise<string> => {
   }
   log.info(`out/${id}/publish.json`);
   log.blank();
+  log.info(`フォルダを開く:   npm run open -- --topic ${id}`);
   log.info(`投稿したら記録する: npm run record -- --topic ${id}`);
   return id;
 };

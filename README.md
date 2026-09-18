@@ -104,6 +104,10 @@ npm run publish-check -- --topic <id>
 | テロップの被り | `tiktok.mp4` を**実機（iPhone）**で再生。UIに文字が隠れていないか | `src/design/safe-area.ts` を実機の値で直す |
 | 音ズレ | 通しで1回見る。字幕と音声がずれていないか | `scripts/synthesize.ts` の問題。plan.md の M2 に戻る |
 
+```bash
+npm run open      # 出力フォルダを開く（--topic 省略で最新のもの）
+```
+
 Studio のプレビューと最終レンダーは一致しないので、**実機確認は mp4 で行う**。
 
 > `safe-area.ts` の数値は**まだ未実測**（`verified: false`）。

@@ -185,6 +185,7 @@ const report = (id: string, checks: Check[]): boolean => {
      → 落ちたら hook を書き直す（台本JSONだけの修正なので安い）
 
   2. テロップの被り
+     npm run open -- --topic ${id}     ← フォルダを開く
      out/${id}/tiktok.mp4 を実機（iPhone）で再生。UIに文字が隠れていないか
      → 落ちたら src/design/safe-area.ts を実機の値で直す
 
