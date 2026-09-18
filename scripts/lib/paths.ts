@@ -35,3 +35,18 @@ export const propsPath = (id: string): string => join(PUBLIC_PROPS_DIR, `${id}.j
 export const narrationPath = (id: string): string => join(PUBLIC_AUDIO_DIR, id, "narration.wav");
 export const workDir = (id: string): string => join(WORK_DIR, id);
 export const outDir = (id: string): string => join(OUT_DIR, id);
+
+// --- モードB（手持ちの動画にテロップを付ける） ---
+
+/** 人間が直すテロップ。**生成物ではなく入力**なので git に入れる */
+export const TELOP_DIR = join(CONTENT_DIR, "telops");
+/** 元動画へのシンボリックリンク置き場（Remotion は public 以下しか配れない） */
+export const PUBLIC_SOURCE_DIR = join(PUBLIC_DIR, "source");
+
+export const telopPath = (slug: string): string => join(TELOP_DIR, `${slug}.json`);
+export const telopPropsPath = (slug: string): string =>
+  join(PUBLIC_PROPS_DIR, `telop-${slug}.json`);
+export const sourceLinkPath = (slug: string): string => join(PUBLIC_SOURCE_DIR, `${slug}.mp4`);
+export const telopWavPath = (slug: string): string => join(WORK_DIR, slug, "asr-16k.wav");
+export const telopAsrPath = (slug: string): string => join(WORK_DIR, slug, "asr.json");
+export const telopOutDir = (slug: string): string => join(OUT_DIR, `telop-${slug}`);

@@ -135,3 +135,37 @@ export const SPACING = {
  */
 export const subtitleBandHeight = (type: Typography): number =>
   type.subtitleSize * type.subtitleLineHeight * 2 + SPACING.gutter / 2;
+
+/**
+ * タイポグラフィを別の画面サイズへ持っていく。
+ *
+ * 上の数値は 1080x1920 に合わせてある。**手持ちの動画は解像度がばらばら**
+ * （モードB）なので、高さの比で全部を掛ける。個別に書き換えると
+ * どれが基準値なのか分からなくなる。
+ */
+export const scaleTypography = (type: Typography, scale: number): Typography => {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return {
+    ...type,
+    hookSize: type.hookSize * s,
+    headingSize: type.headingSize * s,
+    leadSize: type.leadSize * s,
+    subtitleSize: type.subtitleSize * s,
+    telopSize: type.telopSize * s,
+    metaSize: type.metaSize * s,
+    codeSize: type.codeSize * s,
+  };
+};
+
+export type Spacing = { [K in keyof typeof SPACING]: number };
+
+/** 余白も同じ比で動かす */
+export const scaleSpacing = (scale: number): Spacing => {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return {
+    gutter: SPACING.gutter * s,
+    blockGap: SPACING.blockGap * s,
+    radius: SPACING.radius * s,
+    borderWidth: SPACING.borderWidth * s,
+  };
+};

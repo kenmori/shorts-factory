@@ -5,6 +5,7 @@
  */
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import { lstatSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { config, type Platform } from "../../config/pipeline.ts";
 import { CACHE_DIR, ROOT } from "./paths.ts";
@@ -23,10 +24,23 @@ export const bundleOnce = (): Promise<Bundled> => {
   }
   cached = (async () => {
     log.step("バンドル");
+    // symlinkPublicDir は張り替えをしないので、前回のリンクが残っていると
+    // EEXIST で落ちる（2回目以降の全レンダーが死ぬ）。先に外す
+    const publicLink = join(CACHE_DIR, "bundle", "public");
+    try {
+      if (lstatSync(publicLink).isSymbolicLink()) {
+        unlinkSync(publicLink);
+      }
+    } catch {
+      // 無ければそれでよい
+    }
     const serveUrl = await bundle({
       entryPoint: ENTRY,
       outDir: join(CACHE_DIR, "bundle"),
       publicDir: join(ROOT, "public"),
+      // public をコピーせずリンクする。**モードBは元動画を public に置く**ので、
+      // コピーだと数GBをバンドルのたびに写すことになる
+      symlinkPublicDir: true,
       onProgress: () => undefined,
     });
     log.ok("バンドル完了");
@@ -45,12 +59,15 @@ export type Selected = {
 
 const browser = findBrowser();
 
-export const select = async (topicId: string, platform: Platform): Promise<Selected> => {
+/** コンポジションを id で選ぶ。モードA / モードB で共用 */
+export const selectById = async (
+  id: string,
+  inputProps: Record<string, unknown>,
+): Promise<Selected> => {
   const { serveUrl } = await bundleOnce();
-  const inputProps = { topicId, platform };
   const composition = await selectComposition({
     serveUrl,
-    id: `NewsDigest-${platform}`,
+    id,
     inputProps,
     browserExecutable: browser.executable,
     chromeMode: browser.chromeMode,
@@ -58,14 +75,16 @@ export const select = async (topicId: string, platform: Platform): Promise<Selec
   return { serveUrl, composition, inputProps };
 };
 
-export const renderVideo = async (opts: {
-  topicId: string;
-  platform: Platform;
+export const select = (topicId: string, platform: Platform): Promise<Selected> =>
+  selectById(`NewsDigest-${platform}`, { topicId, platform });
+
+export const renderSelected = async (opts: {
+  selected: Selected;
   outPath: string;
   frameRange?: [number, number];
   onProgress?: (ratio: number) => void;
 }): Promise<void> => {
-  const { serveUrl, composition, inputProps } = await select(opts.topicId, opts.platform);
+  const { serveUrl, composition, inputProps } = opts.selected;
   await renderMedia({
     serveUrl,
     composition,
@@ -83,15 +102,29 @@ export const renderVideo = async (opts: {
   });
 };
 
-export const renderFrame = async (opts: {
+export const renderVideo = async (opts: {
   topicId: string;
   platform: Platform;
+  outPath: string;
+  frameRange?: [number, number];
+  onProgress?: (ratio: number) => void;
+}): Promise<void> => {
+  await renderSelected({
+    selected: await select(opts.topicId, opts.platform),
+    outPath: opts.outPath,
+    frameRange: opts.frameRange,
+    onProgress: opts.onProgress,
+  });
+};
+
+export const renderFrameSelected = async (opts: {
+  selected: Selected;
   frame: number;
   outPath: string;
   /** 1 未満にすると縮小して書き出す。スナップショットの容量対策 */
   scale?: number;
 }): Promise<void> => {
-  const { serveUrl, composition, inputProps } = await select(opts.topicId, opts.platform);
+  const { serveUrl, composition, inputProps } = opts.selected;
   await renderStill({
     serveUrl,
     composition,
@@ -103,6 +136,21 @@ export const renderFrame = async (opts: {
     imageFormat: "png",
     scale: opts.scale ?? 1,
     overwrite: true,
+  });
+};
+
+export const renderFrame = async (opts: {
+  topicId: string;
+  platform: Platform;
+  frame: number;
+  outPath: string;
+  scale?: number;
+}): Promise<void> => {
+  await renderFrameSelected({
+    selected: await select(opts.topicId, opts.platform),
+    frame: opts.frame,
+    outPath: opts.outPath,
+    scale: opts.scale,
   });
 };
 

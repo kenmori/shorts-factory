@@ -40,6 +40,11 @@ export type Mp4Track = {
   kind: TrackKind;
   timescale: number;
   durationSec: number;
+  /** 映像トラックの画素数。任意の動画を受けるときに必要 */
+  width: number;
+  height: number;
+  /** 映像トラックの fps。stts（サンプルごとの尺）から求める */
+  fps: number;
   /**
    * 編集リスト（elst）が先頭を飛ばす量。
    * H.264 は B フレームで並べ替えが起きるため、最初のフレームの
@@ -91,6 +96,15 @@ export const readMp4 = (path: string): Mp4Info => {
     const handler = hdlr ? buf.toString("ascii", hdlr.start + 8, hdlr.start + 12) : "";
     const kind: TrackKind = handler === "vide" ? "video" : handler === "soun" ? "audio" : "other";
 
+    // 画面サイズ（tkhd の末尾。16.16 固定小数）
+    const tkhd = pick(trakChildren, "tkhd");
+    let width = 0;
+    let height = 0;
+    if (tkhd) {
+      width = buf.readUInt32BE(tkhd.end - 8) / 65536;
+      height = buf.readUInt32BE(tkhd.end - 4) / 65536;
+    }
+
     // 編集リスト
     let editSkipSec = 0;
     const edts = pick(trakChildren, "edts");
@@ -102,14 +116,34 @@ export const readMp4 = (path: string): Mp4Info => {
       }
     }
 
-    // 最初のフレームの composition offset
+    // 最初のフレームの composition offset と fps
     let firstCompositionOffsetSec = 0;
+    let fps = 0;
     const minf = pick(mdiaChildren, "minf");
     const stbl = minf ? pick(children(buf, minf.start, minf.end), "stbl") : undefined;
     if (stbl) {
-      const ctts = pick(children(buf, stbl.start, stbl.end), "ctts");
+      const stblChildren = children(buf, stbl.start, stbl.end);
+      const ctts = pick(stblChildren, "ctts");
       if (ctts && buf.readUInt32BE(ctts.start + 4) > 0) {
         firstCompositionOffsetSec = buf.readUInt32BE(ctts.start + 12) / timescale;
+      }
+      // stts は (サンプル数, 1サンプルの尺) の並び。いちばん多い尺を採る
+      const stts = pick(stblChildren, "stts");
+      if (stts) {
+        const entries = buf.readUInt32BE(stts.start + 4);
+        let bestCount = 0;
+        let bestDelta = 0;
+        for (let i = 0; i < entries; i++) {
+          const count = buf.readUInt32BE(stts.start + 8 + i * 8);
+          const delta = buf.readUInt32BE(stts.start + 12 + i * 8);
+          if (count > bestCount && delta > 0) {
+            bestCount = count;
+            bestDelta = delta;
+          }
+        }
+        if (bestDelta > 0) {
+          fps = timescale / bestDelta;
+        }
       }
     }
 
@@ -117,6 +151,9 @@ export const readMp4 = (path: string): Mp4Info => {
       kind,
       timescale,
       durationSec: buf.readUInt32BE(mdhd.start + 16) / timescale,
+      width,
+      height,
+      fps,
       editSkipSec,
       firstCompositionOffsetSec,
     });
@@ -155,5 +192,35 @@ export const mp4AvSync = (info: Mp4Info): AvSync => {
   return {
     videoAheadSec: audioStart - videoStart,
     durationDiffSec: video.durationSec - audio.durationSec,
+  };
+};
+
+export type VideoShape = {
+  width: number;
+  height: number;
+  fps: number;
+  durationSec: number;
+};
+
+/**
+ * 映像トラックの形。**任意の動画を受けるときに必要。**
+ * 縦横・fps を推測すると、テロップの位置と字幕の時刻がずれる。
+ */
+export const videoShape = (info: Mp4Info): VideoShape => {
+  const video = info.tracks.find((t) => t.kind === "video");
+  if (!video) {
+    throw new Error("映像トラックが無い（音声だけのファイル？）");
+  }
+  if (video.width <= 0 || video.height <= 0) {
+    throw new Error("画面サイズが読めない（tkhd が壊れている）");
+  }
+  if (video.fps <= 0) {
+    throw new Error("fps が読めない（stts が壊れている）");
+  }
+  return {
+    width: Math.round(video.width),
+    height: Math.round(video.height),
+    fps: Math.round(video.fps * 1000) / 1000,
+    durationSec: info.durationSec,
   };
 };

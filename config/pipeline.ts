@@ -13,6 +13,15 @@ export type TtsEngineId = "voicevox" | "elevenlabs" | "mock";
 
 export type Platform = "tiktok" | "shorts" | "reels";
 
+/** whisper.cpp のモデル。@remotion/install-whisper-cpp が受ける値の部分集合 */
+export type WhisperModelId =
+  | "tiny"
+  | "base"
+  | "small"
+  | "medium"
+  | "large-v3"
+  | "large-v3-turbo";
+
 export type PipelineConfig = {
   /** 台本の作り方。manual = Claude Code で書く / api = script:generate が生成する */
   scriptSource: ScriptSource;
@@ -72,6 +81,29 @@ export type PipelineConfig = {
     modelId: string;
     endpoint: string;
   };
+  /**
+   * モードB（手持ちの動画にテロップを付ける）の設定。
+   * モードA（台本から作る）とは工程が別で、共有しているのは描画とレンダーだけ。
+   */
+  caption: {
+    /**
+     * whisper.cpp のバージョン。**初回だけ github から取ってビルドする。**
+     * clone が失敗するならここを実在するタグに直す（`npm run caption` が案内を出す）
+     */
+    whisperCppVersion: string;
+    /**
+     * モデル。日本語は small 以上でないと固有名詞が崩れる。
+     * large-v3-turbo = 精度と速度の釣り合いが良い（約 1.6GB）
+     */
+    model: WhisperModelId;
+    language: "ja" | "en";
+    /** テロップ1枚の上限文字数 */
+    maxChars: number;
+    /** テロップ1枚の上限（秒）。超えると画面が止まって見える */
+    maxTelopSec: number;
+    /** テロップ1枚の下限（秒）。短いと点滅する */
+    minTelopSec: number;
+  };
 };
 
 export const config: PipelineConfig = {
@@ -103,5 +135,13 @@ export const config: PipelineConfig = {
     voiceId: process.env.ELEVENLABS_VOICE_ID ?? "",
     modelId: "eleven_v3",
     endpoint: "https://api.elevenlabs.io",
+  },
+  caption: {
+    whisperCppVersion: "1.7.6",
+    model: "large-v3-turbo",
+    language: "ja",
+    maxChars: 18,
+    maxTelopSec: 2,
+    minTelopSec: 0.4,
   },
 };

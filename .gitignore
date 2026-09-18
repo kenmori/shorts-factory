@@ -18,6 +18,9 @@ public/props/
 # npm run fonts:sync（postinstall）が置く
 public/fonts/
 
+# モードB。元動画へのハードリンク（実体は利用者のディスク上）
+public/source/
+
 # 大きい素材
 assets/screencasts/
 public/screencasts/

@@ -17,6 +17,11 @@
     "script:verify": "tsx scripts/script-verify.ts",
     "publish": "tsx scripts/publish.ts",
     "publish-check": "tsx scripts/publish-check.ts",
+    "caption": "tsx scripts/caption.ts",
+    "caption:asr": "tsx scripts/caption-asr.ts",
+    "caption:render": "tsx scripts/caption-render.ts",
+    "caption:check": "tsx scripts/caption-check.ts",
+    "caption:verify": "tsx scripts/caption-verify.ts",
     "snapshot": "tsx scripts/snapshot.ts",
     "snapshot:check": "tsx scripts/snapshot.ts --check",
     "fonts:sync": "tsx scripts/fonts-sync.ts",
@@ -45,6 +50,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@remotion/install-whisper-cpp": "^4.0.526",
     "@types/node": "22.19.1",
     "@types/react": "19.2.2",
     "tsx": "4.23.13",

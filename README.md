@@ -8,6 +8,24 @@ TikTok を主戦場に、YouTube Shorts / Instagram Reels へ同一マスター�
 
 ---
 
+## 2つのモード
+
+| | モードA: 完全自動 | モードB: 手持ちの動画を編集 |
+|---|---|---|
+| 入力 | ネタ（`content/topics.yaml`）と台本JSON | 動画ファイルの**絶対パス** |
+| 音声 | VOICEVOX で合成 | 元動画の音声をそのまま使う |
+| 字幕/テロップ | 台本の `\|` から**生成**（時刻は音声長） | 音声認識（whisper.cpp）から生成 → 手で直す |
+| 絵 | テンプレ（画像・グラフ・コード） | 元動画そのまま |
+| 出力 | `out/<id>/` に3媒体 | `out/telop-<slug>/<slug>.mp4` |
+| コマンド | `npm run today` | `npm run caption -- --video <絶対パス>` |
+
+共有しているのは**テロップの見た目（`src/components/SubtitleBox.tsx`）と
+デザイントークンとレンダー**だけ。工程は別物なので、片方を直してももう片方は壊れない。
+
+モードBの手順は「[手持ちの動画にテロップを付ける](#手持ちの動画にテロップを付ける)」。
+
+---
+
 ## セットアップ（初回のみ）
 
 ```bash
@@ -164,6 +182,81 @@ npm run snapshot -- --topic <id>   # 撮り直して git diff で見る
 
 ---
 
+## 手持ちの動画にテロップを付ける
+
+自分で撮った / 編集した動画に、音声認識でテロップを焼く（モードB）。
+
+```bash
+npm run caption -- --video /Users/you/Movies/clip.mp4
+```
+
+認識 → レンダー → 検証を通しで回す。**動画は絶対パスで渡す。**
+
+### 初回だけ時間がかかる
+
+whisper.cpp を github から取ってビルドし、モデルを Hugging Face から落とす
+（`.cache/whisper.cpp` と `.cache/whisper-models`。large-v3-turbo は約1.6GB）。
+**ここだけネットワークが必要。** 2回目以降はローカルで完結する。
+
+ビルドには cmake と C++ コンパイラが必要（mac は `xcode-select --install`）。
+clone が失敗する場合は `config/pipeline.ts` の `caption.whisperCppVersion` を
+実在するタグに直す。
+
+### 固有名詞は必ず直す
+
+認識は固有名詞を外す（「Remotion」→「リモーション」「リモート**ション**」など）。
+出力された `content/telops/<slug>.json` を開いて `text` を直す。
+
+```json
+{ "text": "リモートションで", "startMs": 3200, "endMs": 4400 }
+```
+
+**`startMs` / `endMs` は触らない。** そこは音声から出ている時刻で、
+動かすと音とテロップがずれる。文字数が変わる程度なら時刻はそのままでよい。
+
+直したら:
+
+```bash
+npm run caption -- --video /Users/you/Movies/clip.mp4   # 認識は飛ばして焼き直す
+```
+
+認識をやり直したいときだけ `--force`（**手で直した内容は消える**）。
+
+### テロップの位置
+
+`--platform tiktok|shorts|reels` で媒体UIを避ける余白が変わる（既定は tiktok）。
+テロップの位置以外には効かない。
+
+### 合っているかを機械で見る
+
+```bash
+npm run caption:check -- --video /Users/you/Movies/clip.mp4
+```
+
+見るのは区間の健全性（重なり・はみ出し・0秒・尺の上限下限）と、
+書き出した mp4 の尺と音ズレ。**読みの正しさは機械では見られない**ので目で見る。
+
+工程そのものが正しいかは、**答えが分かっている素材**で測る:
+
+```bash
+npm run caption:verify -- --topic <モードAで作った動画のid>
+```
+
+自前で作った動画（字幕の時刻が既知）にモードBの工程を丸ごと通し、
+文字ごとの時刻を突き合わせて一致率とズレを出す。
+一致率が低ければモデルを大きくする（`config/pipeline.ts` の `caption.model`）。
+
+### 工程を分けて叩く
+
+| コマンド | 何をするか |
+|---|---|
+| `npm run caption:asr -- --video <パス> [--force]` | 音声抽出 → 認識 → テロップJSON |
+| `npm run caption:render -- --video <パス> [--platform …]` | テロップJSON → mp4 |
+| `npm run caption:check -- --video <パス>` | 区間と mp4 の検証 |
+| `npm run caption:verify -- --topic <id>` | 自前の動画で工程の精度を実測 |
+
+---
+
 ## 投稿
 
 ### 投稿前に必ず
@@ -311,6 +404,36 @@ QuickTime などがデコード中に再描画しているだけ（実機やア�
 過去の原因はフォント計測（`fitText`）が NaN を返してそのフレームだけ
 `fontSize` が壊れるケース。`clampFontSize` で塞いである。
 
+**（モードB）`npm run caption` が whisper.cpp の用意で落ちる**
+初回だけ github からソースを取ってビルドする。
+cmake と C++ コンパイラが必要（mac: `xcode-select --install`）。
+タグが無い場合は `config/pipeline.ts` の `caption.whisperCppVersion` を
+実在するタグに直し、`.cache/whisper.cpp` を消してやり直す。
+
+**（モードB）モデルのダウンロードが終わらない / 容量が足りない**
+`caption.model` を `small` にすると 500MB 程度で済む（精度は落ちる）。
+落とし先は `.cache/whisper-models/`。
+
+**（モードB）テロップが出ない / 動画が見つからないと出る**
+元動画は `public/source/<slug>.mp4` に**ハードリンク**して置いている。
+**シンボリックリンクにすると Remotion のレンダー用サーバが 404 で弾く。**
+外付けディスクの動画などハードリンクが張れない場合はコピーに落ちる（時間がかかる）。
+
+**（モードB）認識結果が空**
+音声が入っていない動画か、言語の指定が違う。
+抽出した音声（`.work/<slug>/asr-16k.wav`）を再生して確認する。
+`config/pipeline.ts` の `caption.language` も見る。
+
+**（モードB）テロップが音より早い / 遅い**
+`content/telops/<slug>.json` の時刻を手で動かして直さない。まず測る:
+
+```bash
+npm run caption:verify -- --topic <モードAで作ったid>
+```
+
+「時刻差の中央値」が系統的なズレ。大きければ音声抽出かトークンの時刻の
+取り方が壊れている（`extractAudio()` を使っていないか確認する）。
+
 **ブラウザの起動に失敗する**
 `scripts/lib/browser.ts` が環境の Chromium を探す。通常の Chrome バイナリは
 旧 headless モードを持たないので `chromeMode` を合わせている。
@@ -324,6 +447,10 @@ QuickTime などがデコード中に再描画しているだけ（実機やア�
 
 - **Creator Rewards が個人アカウント限定かどうか。** 出典が弱く矛盾もある。
   アプリ内の申請画面か公式ヘルプで確認する
+- **モードBの認識精度と時刻の精度。** 開発環境から github / Hugging Face に
+  出られず whisper.cpp をビルドできなかったため、`npm run caption:verify` を
+  一度も回せていない。自分の機械で回して一致率とズレを確認する
+  （`config/pipeline.ts` の `caption.whisperCppVersion` が実在するタグかも未確認）
 - **VOICEVOX の採用キャラ（現在 `青山龍星`）の利用規約とクレジット表記。**
   キャラごとに異なる。`config/pipeline.ts` の `voicevox.credit` は
   `VOICEVOX:青山龍星` を**仮に**置いてあるだけで、文言は未確認。

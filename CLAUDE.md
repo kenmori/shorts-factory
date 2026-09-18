@@ -2,6 +2,14 @@
 
 このリポジトリで作業するときの常設ルール。仕様は [plan.md](./plan.md)、運用手順は [README.md](./README.md)。
 
+**モードは2つある。どちらも消さない。**
+
+- **モードA（完全自動）**: ネタ → 台本 → 音声合成 → テンプレでレンダー（`npm run today`）
+- **モードB（手持ちの動画を編集）**: 動画の絶対パス → 音声認識 → テロップを焼く（`npm run caption`）
+
+共有するのは **`src/components/SubtitleBox.tsx` / `src/design/` / `scripts/lib/render-core.ts`** だけ。
+片方の都合でもう片方の工程に分岐を足さない。
+
 ## 環境
 
 - Node **22 以上**、パッケージマネージャは **npm**（`package-lock.json` を使う）
@@ -27,6 +35,11 @@
 | `npm run check:frames -- --topic <id> [--all]` | フレームの欠落（文字が1枚だけ消える事故）を機械で見る |
 | `npm run open [-- --topic <id>]` | 出力フォルダを開く（省略時は最新） |
 | `npm run record -- --topic <id>` | **投稿した後**に叩く。dedupe の記録 |
+| `npm run caption -- --video <絶対パス>` | **モードB**。手持ちの動画にテロップを焼く（認識→レンダー→検証） |
+| `npm run caption:asr -- --video <絶対パス>` | 認識だけ。`content/telops/<slug>.json` を書く |
+| `npm run caption:render -- --video <絶対パス>` | テロップJSON → mp4 |
+| `npm run caption:check -- --video <絶対パス>` | 区間と mp4 の検証（モードBの投稿前ゲート） |
+| `npm run caption:verify -- --topic <id>` | 自前の動画を答えにして工程の精度を実測 |
 | `npm run typecheck` / `npm run test` | 型 / ユニットテスト |
 
 ## 守ること
@@ -74,12 +87,15 @@
 commit しない（`.gitignore` 済み）:
 
 ```
-out/  .cache/  .work/  public/audio/  public/fonts/
+out/  .cache/  .work/  public/audio/  public/fonts/  public/source/
 content/timeline/  content/captions/  content/publish/
 ```
 
 git に入れるもの: **台本JSON / テンプレのコード / デザイントークン /
 topics.yaml / published.json / metrics.yaml / snapshots/**
+
+`content/telops/` は**生成物ではなく入力**（人間が固有名詞を直す）。git に入れる。
+`public/source/` は元動画へのハードリンクなので入れない。
 
 mp4 を LFS で持つ誘惑があるが、台本JSONがあれば再生成できるので不要。
 
@@ -101,6 +117,29 @@ mp4 を LFS で持つ誘惑があるが、台本JSONがあれば再生成でき�
 - mp4 は B フレームの並べ替えで最初のフレームの composition offset が出る。
   それを編集リスト（elst）が打ち消して初めて同期する。publish-check が
   実ファイルで確認している（崩れると全編が数フレームずれる）
+
+### テロップ（モードB）
+
+- **音声抽出に `extractAudio()` を使わない。** あれは再圧縮しないので mp4 の AAC が
+  WAV 容器に入ったまま出る（`audioFormat=255`）。PCM として読むと 67秒が 14秒に
+  見えてテロップの時刻が全部ずれる。`scripts/lib/audio-extract.ts`（同梱 ffmpeg で
+  16kHz モノラル PCM に変換 → `assertPcm16` で確認）を通す
+- **リサンプルを自分で書かない。** 同梱の ffmpeg がやる。折り返し対策つきの
+  実装を持つ理由がない
+- テロップの区間を作る処理は `src/lib/telop.ts` に置く。**純関数だけ。**
+  whisper の型にも fs にも依存させない（不変条件をテストで押さえるため）
+- 守る不変条件は4つ。`checkTelopChunks` が見る:
+  **開始 < 終了 / 重ならない / 音声の長さの中 / 文字を落とさない**
+- **認識結果の時刻（`startMs` / `endMs`）を人間が動かす運用にしない。**
+  直すのは `text` だけ。時刻は音声から出ている唯一の根拠
+- 認識済みのテロップがあるときに勝手に再認識しない（`--force` のときだけ）。
+  **手で直した固有名詞が消えるのがいちばん困る**
+- 元動画は `public/source/<slug>.mp4` に**ハードリンク**する。
+  シンボリックリンクは Remotion のレンダー用サーバが 404 で弾く。
+  コピーもしない（数GBを毎回写すことになる）
+- 画面サイズ・fps・尺は `videoShape()`（mp4 の実測）から取る。**推測で書かない**
+- 1080x1920 基準の数値は `scaleTypography` / `scaleSafeArea` で比を掛けて持っていく。
+  解像度ごとに別の数値を書かない
 
 ### 工程を飛ばす判定
 

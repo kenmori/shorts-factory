@@ -56,3 +56,18 @@ export const unverifiedPlatforms = (): string[] =>
   Object.entries(SAFE_AREA)
     .filter(([, a]) => !a.verified)
     .map(([p]) => p);
+
+/**
+ * セーフエリアを別の画面サイズへ持っていく（モードB）。
+ * 上の数値は 1080x1920 基準。**推測で別の数値を書かない**ため、比で掛けるだけ。
+ */
+export const scaleSafeArea = (area: SafeArea, scale: number): SafeArea => {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return {
+    ...area,
+    top: area.top * s,
+    bottom: area.bottom * s,
+    left: area.left * s,
+    right: area.right * s,
+  };
+};

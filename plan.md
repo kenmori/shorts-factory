@@ -881,6 +881,57 @@ publish-check が毎回「未実測の媒体」を出す。実機で確認した
 **現物のスクリーンショット**を優先する（技術系の題材では信頼性に直接効く）。
 仮素材は `scripts/dev/make-placeholder-shots.ts` が作る。
 
+### 10.15 モードB: 手持ちの動画にテロップを付ける（仕様に無い機能）
+
+仕様は「台本 → 動画」の一方向だけを想定していた。そこへ
+**「動画の絶対パスを渡したら音声解析してテロップを付ける」**を足した。
+モードA（完全自動）は残す。両方できる状態にする。
+
+工程:
+
+```
+動画（絶対パス）
+  → ffmpeg で 16kHz モノラル PCM を抽出（scripts/lib/audio-extract.ts）
+  → whisper.cpp でトークン単位の時刻つき認識（scripts/lib/asr.ts）
+  → テロップの区間にまとめる（src/lib/telop.ts・純関数）
+  → content/telops/<slug>.json（**人間が固有名詞を直す**）
+  → CaptionedVideo でレンダー（OffthreadVideo + SubtitleBox）
+  → caption:check で区間と mp4 を検証
+```
+
+踏んだ落とし穴を残す:
+
+- **`extractAudio()` は音声を変換しない。** mp4 の AAC が WAV 容器に入ったまま
+  出てくる（`audioFormat=255`、byteRate 39671）。これを「バイト数 ÷
+  (rate×ch×2)」で読むと 67.4秒 の音声が **13.9秒** に見え、テロップの時刻が
+  全部ずれる。`readWavFormat` が `audioFormat` を見て `assertPcm16` が落とす
+  ようにした（`tests/caption.test.ts` に固定）
+- 自作のローパス＋線形補間リサンプラを書いたが**捨てた。** Remotion に同梱の
+  ffmpeg が `-ar 16000 -ac 1 -c:a pcm_s16le` でやる。自前の DSP を持つ理由がない
+- **`public/` 以下のシンボリックリンクは Remotion のレンダー用サーバが 404 で弾く**
+  （`serve-handler` が lstat して拒否する）。元動画はハードリンクで置く。
+  コピーは数GBを毎回写すことになるので採らない。あわせて `bundle()` に
+  `symlinkPublicDir: true` を渡し、public 自体もコピーしないようにした
+- `toCaptions()`（@remotion/install-whisper-cpp）は**セグメント単位**なので
+  1枚が数秒になる。トークン単位（`tokenLevelTimestamps: true`）から自分で割る
+- `t_dtw` は取れないと -1 が入る。そのまま使うとテロップが 0秒 に飛ぶので
+  セグメントの区間で埋める
+
+**「音とテロップが合っている」は目では確かめられない。** 認識が外れていても、
+時刻が 0.5秒 遅れていても、見た印象は「だいたい合っている」になる。だから:
+
+1. 不変条件を `checkTelopChunks` に書き、`tests/caption.test.ts` で押さえる
+   （開始 < 終了 / 重ならない / 音声の長さの中 / 文字を落とさない）。
+   でたらめな時刻の並び 40通りを通しても不変条件が崩れないことを確認している
+2. 工程全体は **`npm run caption:verify`** で測る。素材はモードAで作った動画
+   （字幕の時刻が音声長そのもので、答えが分かっている）。文字ごとの時刻を
+   最長共通部分列で対応づけ、一致率と時刻差の中央値・p95 を出す
+
+**この環境では 2 を回せていない**（github / Hugging Face に出られないので
+whisper.cpp をビルドできない）。1 と、音声抽出が 16kHz PCM になって尺が映像と
+1ms 以内で一致することまでは実測済み。認識の精度と時刻の精度は利用者の機械で
+`caption:verify` を回して確認する（README）。
+
 ### 10.12 その他
 
 - ブラウザは環境の Chromium を探して使う（`scripts/lib/browser.ts`）。

@@ -7,10 +7,12 @@
  */
 import { Composition, staticFile } from "remotion";
 import { config, type Platform } from "../config/pipeline.ts";
+import { CaptionedVideo, type CaptionedVideoProps } from "./compositions/CaptionedVideo.tsx";
 import { NewsDigest } from "./compositions/NewsDigest.tsx";
 import { ensureFonts } from "./design/fonts.ts";
 import { VIDEO } from "./design/tokens.ts";
 import { scriptSchema, type Script } from "./schema/script.ts";
+import { telopFileSchema, type TelopFile } from "./schema/telop.ts";
 import { timelineSchema, type Timeline } from "./schema/timeline.ts";
 import { DEFAULT_TOPIC_ID } from "./studio.ts";
 import { toDurationFrames } from "./lib/frames.ts";
@@ -43,6 +45,19 @@ const loadProps = async (
   };
 };
 
+const loadTelop = async (slug: string): Promise<TelopFile> => {
+  const url = staticFile(`props/telop-${slug}.json`);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `public/props/telop-${slug}.json が無い（${res.status}）。` +
+        "先に認識を回す: npm run caption:asr -- --video <動画の絶対パス>",
+    );
+  }
+  const raw = (await res.json()) as { telop: unknown };
+  return telopFileSchema.parse(raw.telop);
+};
+
 export const RemotionRoot: React.FC = () => (
   <>
     {config.platforms.map((platform) => (
@@ -65,5 +80,32 @@ export const RemotionRoot: React.FC = () => (
         }}
       />
     ))}
+
+    {/*
+      モードB（手持ちの動画にテロップを付ける）。
+      画面サイズ・fps・尺は元動画の実測値を telop ファイル経由で受ける。
+      ここの width/height/fps は calculateMetadata が上書きするまでの仮値。
+    */}
+    <Composition
+      id="CaptionedVideo"
+      component={CaptionedVideo}
+      width={VIDEO.width}
+      height={VIDEO.height}
+      fps={config.fps}
+      durationInFrames={config.fps}
+      defaultProps={
+        { slug: "", platform: config.platforms[0] as Platform } satisfies CaptionedVideoProps
+      }
+      calculateMetadata={async ({ props }) => {
+        const telop = await loadTelop(props.slug);
+        return {
+          durationInFrames: toDurationFrames(telop.videoDurationSec, telop.fps),
+          fps: telop.fps,
+          width: telop.width,
+          height: telop.height,
+          props: { ...props, telop },
+        };
+      }}
+    />
   </>
 );
