@@ -149,15 +149,43 @@ export const synthesizeTopic = async (
   return timeline;
 };
 
+/**
+ * 尺が範囲外なら、**何文字足す／削るかを実測から出す。**
+ *
+ * 文字数から尺を推定すると1割ずれる（漢字の多さでモーラ数が変わるため）。
+ * いま合成した音声の実測値を使えば推定が要らない。
+ */
 const warnIfOutOfRange = (script: Script, timeline: Timeline): void => {
   const [min, max] = config.durationRangeSec;
   const actual = timeline.totalDurationSec;
-  if (actual < min || actual > max) {
-    log.warn(
-      `尺 ${actual}秒 が ${min}〜${max}秒 から外れている` +
-        `（台本の目標は ${script.totalDurationSec}秒）。ナレーションを足す/削る`,
-    );
+  if (actual >= min && actual <= max) {
+    return;
   }
+
+  const chars = [...script.sections.map((s) => s.narration), script.outro]
+    .map((n) => [...stripChunkMarks(n)].length)
+    .reduce((a, b) => a + b, 0);
+  const audioSec = timeline.audio.reduce((a, s) => a + s.durationSec, 0);
+  const charsPerSec = chars / audioSec;
+  const avgChunkChars = chars / Math.max(1, timeline.captions.length);
+
+  // 下限・上限に張り付けず中央を狙う（実測には数%のばらつきがある）
+  const target = (min + max) / 2;
+  const deltaSec = target - actual;
+  const deltaChars = Math.round(deltaSec * charsPerSec);
+  const deltaChunks = Math.round(Math.abs(deltaChars) / avgChunkChars);
+
+  log.warn(
+    `尺 ${actual}秒 が ${min}〜${max}秒 から外れている（台本の目標は ${script.totalDurationSec}秒）`,
+  );
+  log.info(
+    `実測: ${charsPerSec.toFixed(2)}文字/秒（この話者・この台本。チャンクの前後の無音を含む）`,
+  );
+  log.info(
+    `ナレーションを${deltaSec > 0 ? "約" : "約"}${Math.abs(deltaChars)}文字 ` +
+      `${deltaSec > 0 ? "足す" : "削る"}（${deltaChunks}チャンクぶん）→ ${target}秒 になる`,
+  );
+  log.info("直したチャンクだけ再合成される（他はキャッシュに当たる）");
 };
 
 const main = async (): Promise<void> => {
