@@ -23,6 +23,13 @@ curl http://127.0.0.1:50021/version     # バージョンが返れば OK
 npm run tts:probe                       # 返り値を目で見る（下記）
 ```
 
+話者は **名前で指定する**（`config/pipeline.ts` の `voicevox.speakerName`。既定は `青山龍星`）。
+番号は書かない — ENGINE の `/speakers` から引く。使える名前とスタイルの一覧:
+
+```bash
+npm run tts:voices
+```
+
 **ENGINE を初めて繋いだら `npm run tts:probe` を1回やる。**
 読み（「Remotion」「4.0」がどう読まれるか）・モーラ音長と実測のズレ・
 1チャンクの尺を出す。台本を書く前に「何文字で何秒か」を掴んでおくと、
@@ -280,7 +287,9 @@ slug を変えるとローテートがずれる。
 
 - **Creator Rewards が個人アカウント限定かどうか。** 出典が弱く矛盾もある。
   アプリ内の申請画面か公式ヘルプで確認する
-- **VOICEVOX の採用キャラの利用規約とクレジット表記。** キャラごとに異なる。
-  収益化前に確認する（`config/pipeline.ts` の `voicevox.speaker`）
+- **VOICEVOX の採用キャラ（現在 `青山龍星`）の利用規約とクレジット表記。**
+  キャラごとに異なる。`config/pipeline.ts` の `voicevox.credit` は
+  `VOICEVOX:青山龍星` を**仮に**置いてあるだけで、文言は未確認。
+  規約を読んで直す（投稿テキストの3媒体すべてに自動で入る）
 - **セーフエリアの実測値。** `src/design/safe-area.ts` は全媒体 `verified: false`
 - **BGM。** `public/bgm/placeholder-pad.wav` は生成した仮の音。差し替える

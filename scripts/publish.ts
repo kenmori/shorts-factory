@@ -11,13 +11,13 @@
  * `evergreen` はバージョンだけにする（3ヶ月後に古く見えるとロングテールが死ぬ）。
  */
 import { AIGC_NOTE, BASE_HASHTAGS, FORMAT_HASHTAGS, MAX_SHORTS_TITLE } from "../config/publish.ts";
-import type { Platform } from "../config/pipeline.ts";
+import { config, type Platform } from "../config/pipeline.ts";
 import { stripChunkMarks, type Script } from "../src/schema/script.ts";
 import { publishSchema, type Publish } from "../src/schema/publish.ts";
 import { getTopic, parseArgs } from "./lib/args.ts";
 import { log, runMain } from "./lib/log.ts";
 import { isEntry } from "./lib/main.ts";
-import { loadScript, savePublish } from "./lib/script-io.ts";
+import { loadScript, loadTimeline, savePublish, timelineExists } from "./lib/script-io.ts";
 import { writeJson } from "./lib/io.ts";
 import { outDir } from "./lib/paths.ts";
 import { join } from "node:path";
@@ -47,7 +47,15 @@ const dateLine = (script: Script): string =>
 const bodyLines = (script: Script): string[] =>
   script.sections.map((s, i) => `${i + 1}. ${s.heading}`);
 
-export const buildPublish = (script: Script): Publish => {
+/**
+ * 音声のクレジット表記。**VOICEVOX はキャラごとに規約が違う**ので、
+ * 必要な文言は config に持たせて機械的に差し込む（忘れる余地を消す）。
+ * mock（無音）なら不要。
+ */
+export const creditFor = (engine: string): string | null =>
+  engine === "voicevox" ? config.voicevox.credit : null;
+
+export const buildPublish = (script: Script, credit: string | null = null): Publish => {
   const headline = script.hook;
   const summary = bodyLines(script);
   const sources = script.sources.map((s) => s.url);
@@ -57,7 +65,18 @@ export const buildPublish = (script: Script): Publish => {
   const shortsTags = hashtagsFor(script, "shorts");
   const reelsTags = hashtagsFor(script, "reels");
 
-  const tiktokCaption = [headline, "", ...summary, "", dateLine(script), AIGC_NOTE, "", tiktokTags.join(" ")].join("\n");
+  const notes = credit === null ? [AIGC_NOTE] : [AIGC_NOTE, credit];
+
+  const tiktokCaption = [
+    headline,
+    "",
+    ...summary,
+    "",
+    dateLine(script),
+    ...notes,
+    "",
+    tiktokTags.join(" "),
+  ].join("\n");
 
   const titleBase = script.version
     ? `${headline}｜${script.entity} ${script.version}`
@@ -75,7 +94,7 @@ export const buildPublish = (script: Script): Publish => {
     "出典:",
     ...sources.map((url) => `- ${url}`),
     "",
-    AIGC_NOTE,
+    ...notes,
     "",
     shortsTags.join(" "),
   ].join("\n");
@@ -86,7 +105,7 @@ export const buildPublish = (script: Script): Publish => {
     ...summary,
     "",
     dateLine(script),
-    AIGC_NOTE,
+    ...notes,
     "",
     reelsTags.join(" "),
   ].join("\n");
@@ -105,7 +124,9 @@ export const buildPublish = (script: Script): Publish => {
 
 export const publishTopic = (id: string): Publish => {
   const script = loadScript(id);
-  const publish = buildPublish(script);
+  // どのエンジンで音声を作ったかはタイムライン（生成物）に書いてある
+  const credit = timelineExists(id) ? creditFor(loadTimeline(id).engine) : null;
+  const publish = buildPublish(script, credit);
   savePublish(publish);
   // 動画と同じ場所にも置く。投稿作業でディレクトリを行き来しないため
   writeJson(join(outDir(id), "publish.json"), publish);

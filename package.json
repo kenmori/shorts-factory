@@ -24,7 +24,8 @@
     "test": "vitest run",
     "postinstall": "tsx scripts/fonts-sync.ts",
     "record": "tsx scripts/record-published.ts",
-    "tts:probe": "tsx scripts/dev/tts-probe.ts"
+    "tts:probe": "tsx scripts/dev/tts-probe.ts",
+    "tts:voices": "tsx scripts/dev/tts-voices.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-jp": "5.3.0",

@@ -20,7 +20,9 @@ import { buildPublish } from "../scripts/publish.ts";
 import { loadScript } from "../scripts/lib/script-io.ts";
 import { estimateDurationSec } from "../scripts/tts/mock.ts";
 import { needsSynthesis } from "../scripts/lib/fresh.ts";
-import { durationFromQuery, type AudioQuery } from "../scripts/tts/voicevox.ts";
+import { durationFromQuery, pickStyleId, type AudioQuery, type SpeakerInfo } from "../scripts/tts/voicevox.ts";
+import { creditFor } from "../scripts/publish.ts";
+import { config } from "../config/pipeline.ts";
 import { existsSync } from "node:fs";
 import { outDir } from "../scripts/lib/paths.ts";
 import { join } from "node:path";
@@ -389,5 +391,62 @@ describe("VOICEVOX のモーラ音長からの尺（設計の検算に使う値�
     }
     phrase.pause_mora = mora(null, 0.3);
     expect(durationFromQuery(q)).toBeCloseTo(0.65, 5);
+  });
+});
+
+describe("話者の選択（番号をコードに書かない）", () => {
+  const speakers: SpeakerInfo[] = [
+    { name: "ずんだもん", speaker_uuid: "u1", styles: [{ name: "ノーマル", id: 3 }] },
+    {
+      name: "青山龍星",
+      speaker_uuid: "u2",
+      // 実際の id は ENGINE のバージョンで変わる。ここでは架空の値
+      styles: [
+        { name: "ノーマル", id: 81 },
+        { name: "熱血", id: 82 },
+        { name: "囁き", id: 83 },
+      ],
+    },
+    { name: "スタイル1つだけ", speaker_uuid: "u3", styles: [{ name: "通常", id: 99 }] },
+  ];
+
+  it("名前から id を引く（既定はノーマル）", () => {
+    expect(pickStyleId(speakers, "青山龍星", null)).toBe(81);
+  });
+
+  it("スタイルを指定できる", () => {
+    expect(pickStyleId(speakers, "青山龍星", "熱血")).toBe(82);
+  });
+
+  it("ノーマルが無い話者は先頭のスタイルにする", () => {
+    expect(pickStyleId(speakers, "スタイル1つだけ", null)).toBe(99);
+  });
+
+  it("知らない話者名は使える一覧を出して落ちる（別のキャラで無言に合成しない）", () => {
+    expect(() => pickStyleId(speakers, "居ないキャラ", null)).toThrow(/青山龍星/);
+  });
+
+  it("知らないスタイル名も落ちる", () => {
+    expect(() => pickStyleId(speakers, "青山龍星", "存在しない")).toThrow(/熱血/);
+  });
+
+  it("config の話者名が空でない（名前で指定する運用が崩れていないこと）", () => {
+    expect(config.voicevox.speakerName.length).toBeGreaterThan(0);
+  });
+});
+
+describe("音声のクレジット表記", () => {
+  it("VOICEVOX ならクレジットが3媒体すべてに入る", () => {
+    const credit = creditFor("voicevox");
+    expect(credit).not.toBeNull();
+    const publish = buildPublish(sample, credit);
+    expect(publish.tiktok.caption).toContain(credit as string);
+    expect(publish.shorts.description).toContain(credit as string);
+    expect(publish.reels.caption).toContain(credit as string);
+  });
+
+  it("mock（無音）ならクレジットは入らない", () => {
+    expect(creditFor("mock")).toBeNull();
+    expect(buildPublish(sample, null).tiktok.caption).not.toContain("VOICEVOX");
   });
 });

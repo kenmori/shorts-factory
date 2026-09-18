@@ -18,6 +18,7 @@
 | `npm run render -- --topic <id> [--section N] [--platform tiktok]` | レンダー（部分レンダー可） |
 | `npm run synthesize -- --topic <id> [--offline]` | 音声合成と字幕だけ |
 | `npm run tts:probe [-- --text "原稿"]` | TTS の返り値を目で見る。**ENGINE を繋いだら1回やる** |
+| `npm run tts:voices` | 話者とスタイルの一覧。config に書くのは**名前**（番号ではない） |
 | `npm run script:prepare -- --topic <id>` | 一次ソース取得 → `.work/<id>/` |
 | `npm run script:verify -- --topic <id>` | zod + lint + dedupe |
 | `npm run publish -- --topic <id>` | 投稿テキスト生成 |
@@ -76,6 +77,10 @@ mp4 を LFS で持つ誘惑があるが、台本JSONがあれば再生成でき�
   字幕の割れ方を何度調整しても音声が再生成されないことがイテレーション速度の前提
 - `--offline` でキャッシュミスしたら**黙って生成せずエラーで落とす**
 - `tts: "mock"` は配線確認専用。投稿用の動画には使わない（publish-check が落とす）
+- **話者は番号ではなく名前で指定する**（`voicevox.speakerName`）。style id は ENGINE の
+  `/speakers` から引く。番号を推測で書くと別のキャラの声で無言に合成される
+- 採用キャラのクレジット表記は `voicevox.credit` に置き、`publish.ts` が
+  投稿テキストへ機械的に差し込む。**文言はキャラごとの規約で確認する**
 
 ## 判断が必要になったら
 

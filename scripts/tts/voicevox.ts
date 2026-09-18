@@ -60,6 +60,61 @@ const request = async (path: string, init?: RequestInit): Promise<Response> => {
   return res;
 };
 
+/** GET /speakers の応答 */
+export type SpeakerInfo = {
+  name: string;
+  speaker_uuid: string;
+  styles: { name: string; id: number; type?: string }[];
+};
+
+/**
+ * 話者名とスタイル名から style id を選ぶ。
+ *
+ * **番号をコードに書かない。** ENGINE が返す一覧から引く。
+ * VOICEVOX のバージョンでキャラが増減するし、番号を推測で書くと
+ * 別のキャラの声で無言に合成されるのが最悪（規約違反にもなりうる）。
+ */
+export const pickStyleId = (
+  speakers: SpeakerInfo[],
+  speakerName: string,
+  styleName: string | null,
+): number => {
+  const speaker = speakers.find((s) => s.name === speakerName);
+  if (!speaker) {
+    throw new Error(
+      [
+        `VOICEVOX に話者「${speakerName}」が見つからない。`,
+        "config/pipeline.ts の voicevox.speakerName を直す。使える話者:",
+        ...speakers.map((s) => `  - ${s.name}（${s.styles.map((t) => t.name).join(" / ")}）`),
+      ].join("\n"),
+    );
+  }
+  const wanted = styleName ?? "ノーマル";
+  const style =
+    speaker.styles.find((t) => t.name === wanted) ??
+    (styleName === null ? speaker.styles[0] : undefined);
+  if (!style) {
+    throw new Error(
+      `「${speakerName}」にスタイル「${styleName}」が無い。` +
+        `使えるスタイル: ${speaker.styles.map((t) => t.name).join(" / ")}`,
+    );
+  }
+  return style.id;
+};
+
+export const fetchSpeakers = async (): Promise<SpeakerInfo[]> =>
+  (await (await request("/speakers")).json()) as SpeakerInfo[];
+
+/** 解決した style id。プロセス内で1回だけ引く */
+let speakerId: Promise<number> | null = null;
+
+export const resolveSpeakerId = (): Promise<number> => {
+  speakerId ??= fetchSpeakers().then((speakers) =>
+    pickStyleId(speakers, vv.speakerName, vv.styleName),
+  );
+  return speakerId;
+};
+
 /** モーラ長から尺を出す。WAV 実測値との突き合わせ（設計の検算）に使う */
 export const durationFromQuery = (q: AudioQuery): number => {
   let sec = 0;
@@ -79,8 +134,9 @@ export const durationFromQuery = (q: AudioQuery): number => {
  * モーラ音長が入っているので、ここが日本語の字幕タイミングの一次情報になる。
  */
 export const audioQuery = async (text: string): Promise<AudioQuery> => {
+  const speaker = await resolveSpeakerId();
   const query = (await (
-    await request(`/audio_query?speaker=${vv.speaker}&text=${encodeURIComponent(text)}`, {
+    await request(`/audio_query?speaker=${speaker}&text=${encodeURIComponent(text)}`, {
       method: "POST",
     })
   ).json()) as AudioQuery;
@@ -96,7 +152,8 @@ export const audioQuery = async (text: string): Promise<AudioQuery> => {
 };
 
 export const synthesizeQuery = async (query: AudioQuery): Promise<Buffer> => {
-  const res = await request(`/synthesis?speaker=${vv.speaker}`, {
+  const speaker = await resolveSpeakerId();
+  const res = await request(`/synthesis?speaker=${speaker}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "audio/wav" },
     body: JSON.stringify(query),
@@ -109,7 +166,7 @@ const synthesizeChunk = async (text: string): Promise<Buffer> =>
 
 export const voicevoxEngine: TtsEngine = {
   id: "voicevox",
-  signature: `voicevox:speaker=${vv.speaker}:speed=${vv.speedScale}:pitch=${vv.pitchScale}:into=${vv.intonationScale}:pre=${vv.prePhonemeLength}:post=${vv.postPhonemeLength}`,
+  signature: `voicevox:speaker=${vv.speakerName}/${vv.styleName ?? "ノーマル"}:speed=${vv.speedScale}:pitch=${vv.pitchScale}:into=${vv.intonationScale}:pre=${vv.prePhonemeLength}:post=${vv.postPhonemeLength}`,
   ext: "wav",
   synthesize: async (utterance: Utterance, cache: CacheFn): Promise<SynthSegment[]> => {
     const segments: SynthSegment[] = [];

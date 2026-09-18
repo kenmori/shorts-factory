@@ -35,7 +35,19 @@ export type PipelineConfig = {
   platforms: readonly Platform[];
   voicevox: {
     endpoint: string;
-    speaker: number;
+    /**
+     * 話者名。**番号ではなく名前で指定する。**
+     * 番号（style id）は ENGINE の /speakers から引く。推測で数値を書かないため。
+     */
+    speakerName: string;
+    /** スタイル名（「ノーマル」「熱血」など）。null なら ノーマル、無ければ先頭 */
+    styleName: string | null;
+    /**
+     * クレジット表記。投稿テキストに機械的に差し込む。
+     * ⚠️ **文言は未確認。** VOICEVOX はキャラごとに利用規約が違い、表記の要否と
+     * 書式も異なる。採用キャラの規約を読んでここを直す（plan.md 9節）。
+     */
+    credit: string;
     speedScale: number;
     pitchScale: number;
     intonationScale: number;
@@ -65,7 +77,9 @@ export const config: PipelineConfig = {
   voicevox: {
     endpoint: process.env.VOICEVOX_ENDPOINT ?? "http://127.0.0.1:50021",
     // 採用キャラの利用規約とクレジット表記は収益化前に確認する（plan.md 9節）
-    speaker: 3,
+    speakerName: "青山龍星",
+    styleName: null,
+    credit: "VOICEVOX:青山龍星",
     speedScale: 1.05,
     pitchScale: 0,
     intonationScale: 1.1,

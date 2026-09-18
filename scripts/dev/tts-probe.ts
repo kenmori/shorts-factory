@@ -26,7 +26,12 @@ import { log, runMain } from "../lib/log.ts";
 import { loadScript } from "../lib/script-io.ts";
 import { OUT_DIR } from "../lib/paths.ts";
 import { wavDurationSec } from "../lib/wav.ts";
-import { audioQuery, durationFromQuery, synthesizeQuery } from "../tts/voicevox.ts";
+import {
+  audioQuery,
+  durationFromQuery,
+  resolveSpeakerId,
+  synthesizeQuery,
+} from "../tts/voicevox.ts";
 
 /**
  * 既定の原稿（50文字）。
@@ -50,8 +55,12 @@ const main = async (): Promise<void> => {
   }
 
   const chunks = toChunks(text);
-  log.step(`VOICEVOX に投げる（speaker=${config.voicevox.speaker} / ${chunks.length}チャンク）`);
-  log.info(`endpoint: ${config.voicevox.endpoint}`);
+  const vv = config.voicevox;
+  log.step(`VOICEVOX に投げる（${chunks.length}チャンク）`);
+  log.info(`endpoint: ${vv.endpoint}`);
+  // 話者は名前で指定して ENGINE から id を引く（番号を推測で書かない）
+  const speakerId = await resolveSpeakerId();
+  log.info(`話者: ${vv.speakerName} / ${vv.styleName ?? "ノーマル"}（style id=${speakerId}）`);
   log.blank();
 
   const dir = join(OUT_DIR, "tts-probe");
