@@ -242,6 +242,31 @@ export const lintTimeline = (script: Script, timeline: Timeline): Finding[] => {
     );
   }
 
+  // --- 字幕と音声の対応 ---
+  // 字幕の区間は音声セグメントの区間から作るので、設計上ずれない。
+  // ずれたら「音声の配置」か「字幕の生成」のどちらかが壊れた合図なので落とす
+  const tolerance = 1 / timeline.fps;
+  const strayCaptions = timeline.captions.filter((caption) => {
+    const start = caption.startMs / 1000;
+    const end = caption.endMs / 1000;
+    return !timeline.audio.some(
+      (segment) =>
+        start >= segment.startSec - tolerance &&
+        end <= segment.startSec + segment.durationSec + tolerance,
+    );
+  });
+  if (timeline.audio.length > 0 && strayCaptions.length > 0) {
+    add(
+      "error",
+      "caption-audio-drift",
+      `字幕 ${strayCaptions.length}個 が音声の区間から外れている（1フレーム ${tolerance.toFixed(3)}秒 の許容外）:\n           ` +
+        strayCaptions
+          .slice(0, 5)
+          .map((c) => `${(c.startMs / 1000).toFixed(2)}秒「${c.text}」`)
+          .join("\n           "),
+    );
+  }
+
   // --- 視覚変化の間隔 ---
   // セクションの開始は下のループで入るので、ここは先頭のフックだけ
   const events: { sec: number; what: string }[] = [{ sec: 0, what: "hook" }];

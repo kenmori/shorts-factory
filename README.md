@@ -104,6 +104,12 @@ npm run publish-check -- --topic <id>
 | テロップの被り | `tiktok.mp4` を**実機（iPhone）**で再生。UIに文字が隠れていないか | `src/design/safe-area.ts` を実機の値で直す |
 | 音ズレ | 通しで1回見る。字幕と音声がずれていないか | `scripts/synthesize.ts` の問題。plan.md の M2 に戻る |
 
+音ズレは**機械側でも2段で見ている**ので、目で見るのは最終確認だけ。
+
+- `caption-audio-drift`: 字幕が音声の区間から外れていないか（タイムライン）
+- 「映像と音声が同期している」: mp4 の実ファイルで、Bフレームの並べ替え分が
+  編集リストで打ち消されているか。ここが崩れると全編が数フレームずれる
+
 ```bash
 npm run open            # 出力フォルダを開く（--topic 省略で最新のもの）
 npm run check:frames -- --topic <id>   # フレームの欠落を機械で見る（下記）

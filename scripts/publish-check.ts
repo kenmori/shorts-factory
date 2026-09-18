@@ -14,7 +14,7 @@ import { SAFE_AREA, unverifiedPlatforms } from "../src/design/safe-area.ts";
 import { getTopic, parseArgs } from "./lib/args.ts";
 import { log, runMain } from "./lib/log.ts";
 import { isEntry } from "./lib/main.ts";
-import { mp4DurationSec } from "./lib/mp4.ts";
+import { mp4AvSync, mp4DurationSec, readMp4 } from "./lib/mp4.ts";
 import { outDir, PUBLIC_DIR, publishPath, timelinePath } from "./lib/paths.ts";
 import { mtime } from "./lib/fresh.ts";
 import {
@@ -119,6 +119,29 @@ export const publishCheck = (id: string): boolean => {
       }),
     );
   }
+
+  // --- 映像と音声の同期（実ファイルを見る）---
+  checks.push(
+    run("映像と音声が同期している", () => {
+      const path = join(outDir(id), "tiktok.mp4");
+      if (!existsSync(path)) {
+        return "tiktok.mp4 が無いので判定できない";
+      }
+      const sync = mp4AvSync(readMp4(path));
+      const frame = 1 / timeline.fps;
+      if (Math.abs(sync.videoAheadSec) > frame) {
+        return (
+          `映像と音声が ${(sync.videoAheadSec * 1000).toFixed(0)}ms ずれている` +
+          `（許容 1フレーム = ${(frame * 1000).toFixed(0)}ms）。` +
+          "Bフレームの並べ替え分を編集リストが打ち消せていない"
+        );
+      }
+      if (Math.abs(sync.durationDiffSec) > 0.5) {
+        return `映像と音声の長さが ${(sync.durationDiffSec * 1000).toFixed(0)}ms 違う`;
+      }
+      return null;
+    }),
+  );
 
   // --- 投稿テキスト ---
   checks.push(

@@ -13,7 +13,7 @@ import { PALETTES } from "../src/design/tokens.ts";
 import { locateChunks } from "../scripts/tts/types.ts";
 import { cacheDigest } from "../scripts/lib/audio-cache.ts";
 import { silentWav, wavDurationSec } from "../scripts/lib/wav.ts";
-import { mp4DurationSec } from "../scripts/lib/mp4.ts";
+import { mp4AvSync, mp4DurationSec, readMp4 } from "../scripts/lib/mp4.ts";
 import { tripleKey, findTripleCollision, variantRepeatsThreeTimes } from "../scripts/lib/published.ts";
 import { lintScript, lintTimeline } from "../scripts/lint-script.ts";
 import { buildPublish } from "../scripts/publish.ts";
@@ -624,5 +624,106 @@ describe("フレームの欠落検出", () => {
     const blank = stable.map((s) => ({ ...s, ratio: 0 }));
     expect(findDropouts(blank)).toHaveLength(10);
     expect(MIN_BRIGHT_RATIO).toBeGreaterThan(0);
+  });
+});
+
+describe("字幕と音声の対応", () => {
+  const base = {
+    id: sample.id,
+    fps: 30,
+    engine: "voicevox",
+    voiceSignature: "voicevox:1",
+    bgmSrc: "bgm/placeholder-pad.wav",
+    hook: { startSec: 0, durationSec: 1.2 },
+    sections: [{ startSec: 0, durationSec: 10 }],
+    outro: { startSec: 10, durationSec: 4 },
+    totalDurationSec: 14,
+    generatedAt: "2026-09-18T00:00:00Z",
+  };
+  const caption = (text: string, startMs: number, endMs: number) => ({
+    text,
+    startMs,
+    endMs,
+    timestampMs: startMs,
+    confidence: null,
+  });
+  const drift = (timeline: Parameters<typeof lintTimeline>[1]): boolean =>
+    lintTimeline(sample, timeline)
+      .map((f) => f.rule)
+      .includes("caption-audio-drift");
+
+  it("字幕の区間が音声の区間と一致していれば通る（VOICEVOX 経路）", () => {
+    expect(
+      drift({
+        ...base,
+        audio: [{ src: "a.wav", startSec: 0, durationSec: 1 }],
+        captions: [caption("いち", 0, 1000)],
+      }),
+    ).toBe(false);
+  });
+
+  it("字幕が音声より長い区間にまたがっていたら落ちる", () => {
+    expect(
+      drift({
+        ...base,
+        audio: [{ src: "a.wav", startSec: 0, durationSec: 1 }],
+        captions: [caption("はみ出す", 0, 2000)],
+      }),
+    ).toBe(true);
+  });
+
+  it("字幕が無音の位置に置かれていたら落ちる（ここが音ズレ）", () => {
+    expect(
+      drift({
+        ...base,
+        audio: [{ src: "a.wav", startSec: 0, durationSec: 1 }],
+        captions: [caption("ずれてる", 3000, 4000)],
+      }),
+    ).toBe(true);
+  });
+
+  it("1つの音声に複数の字幕が入っていても通る（ElevenLabs 経路）", () => {
+    expect(
+      drift({
+        ...base,
+        audio: [{ src: "a.mp3", startSec: 0, durationSec: 3 }],
+        captions: [caption("いち", 0, 1000), caption("に", 1000, 2000), caption("さん", 2000, 3000)],
+      }),
+    ).toBe(false);
+  });
+
+  it("1フレーム以内の丸めは許す", () => {
+    expect(
+      drift({
+        ...base,
+        audio: [{ src: "a.wav", startSec: 0, durationSec: 1 }],
+        captions: [caption("ぎりぎり", 0, 1020)],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("mp4 の映像と音声の同期", () => {
+  const path = join(outDir(SAMPLE_ID), "tiktok.mp4");
+
+  it.skipIf(!existsSync(path))("映像と音声のトラックが揃っている", () => {
+    const info = readMp4(path);
+    expect(info.tracks.map((t) => t.kind).sort()).toEqual(["audio", "video"]);
+  });
+
+  it.skipIf(!existsSync(path))(
+    "Bフレームの並べ替え分が編集リストで打ち消されている（ズレ1フレーム以内）",
+    () => {
+      const sync = mp4AvSync(readMp4(path));
+      expect(Math.abs(sync.videoAheadSec)).toBeLessThanOrEqual(1 / 30);
+    },
+  );
+
+  it.skipIf(!existsSync(path))("映像と音声の長さがほぼ同じ", () => {
+    expect(Math.abs(mp4AvSync(readMp4(path)).durationDiffSec)).toBeLessThan(0.5);
+  });
+
+  it("映像か音声が欠けている mp4 は落とす", () => {
+    expect(() => mp4AvSync({ durationSec: 10, tracks: [] })).toThrow();
   });
 });
