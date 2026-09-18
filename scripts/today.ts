@@ -122,10 +122,18 @@ export const today = async (options: TodayOptions = {}): Promise<string> => {
     propsAt: mtime(propsPath(id)),
     timelineEngine: timelineExists(id) ? loadTimeline(id).engine : null,
     wantEngine,
+    // 尺・フックの重なり・末尾余白は config と合成コードで決まる
+    layoutAt: Math.max(
+      mtime(join(ROOT, "config", "pipeline.ts")),
+      mtime(join(ROOT, "scripts", "synthesize.ts")),
+    ),
   });
   if (synth.needed) {
     if (synth.reason === "engine-changed") {
       log.info(`エンジンが変わった（→ ${wantEngine}）ので音声を作り直す`);
+    }
+    if (synth.reason === "layout-changed") {
+      log.info("config か合成コードが変わったのでタイムラインを作り直す");
     }
     await synthesizeTopic(id, {
       offline: options.offline === true,

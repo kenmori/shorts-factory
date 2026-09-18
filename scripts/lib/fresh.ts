@@ -26,12 +26,24 @@ export const isFresh = (out: string, inputs: number[]): boolean => {
   return inputs.every((at) => at <= outAt);
 };
 
+export type SynthesisReason =
+  | "force"
+  | "no-timeline"
+  | "script-changed"
+  | "engine-changed"
+  | "layout-changed"
+  | null;
+
 /**
  * 音声合成をやり直す必要があるか。
  *
- * 台本の更新時刻だけを見ていると、**エンジンを切り替えたときに取り残される。**
- * mock で配線を確認したあと VOICEVOX に切り替えても、タイムラインが台本より
- * 新しいままなので合成が飛ばされ、無音の動画が投稿前ゲートに落ち続ける。
+ * **タイムラインが何に依存しているかを全部並べる。** 台本の更新時刻だけを
+ * 見ていると取り残される。実際に2回踏んだ:
+ *
+ *   - エンジンを mock から VOICEVOX に戻しても合成が飛ばされ、無音のまま
+ *   - config の hookOverlaySec を変えても合成が飛ばされ、冒頭の配置が古いまま
+ *
+ * 依存しているのは「台本」「エンジン」「config と合成コード（= 配置の決め方）」。
  */
 export const needsSynthesis = (input: {
   force: boolean;
@@ -41,7 +53,12 @@ export const needsSynthesis = (input: {
   /** 既存のタイムラインを作ったエンジン。タイムラインが無ければ null */
   timelineEngine: string | null;
   wantEngine: string;
-}): { needed: boolean; reason: "force" | "no-timeline" | "script-changed" | "engine-changed" | null } => {
+  /**
+   * 配置を決めるもの（config/pipeline.ts と scripts/synthesize.ts）の
+   * いちばん新しい更新時刻。尺・フックの重なり・末尾余白がここで決まる
+   */
+  layoutAt: number;
+}): { needed: boolean; reason: SynthesisReason } => {
   if (input.force) {
     return { needed: true, reason: "force" };
   }
@@ -51,8 +68,12 @@ export const needsSynthesis = (input: {
   if (input.timelineEngine !== input.wantEngine) {
     return { needed: true, reason: "engine-changed" };
   }
-  if (input.timelineAt < input.scriptAt || input.propsAt < input.scriptAt) {
+  const oldest = Math.min(input.timelineAt, input.propsAt);
+  if (oldest < input.scriptAt) {
     return { needed: true, reason: "script-changed" };
+  }
+  if (oldest < input.layoutAt) {
+    return { needed: true, reason: "layout-changed" };
   }
   return { needed: false, reason: null };
 };

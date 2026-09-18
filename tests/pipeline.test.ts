@@ -339,6 +339,7 @@ describe("音声合成をやり直すかの判定（工程を飛ばす条件）"
     propsAt: 2000,
     timelineEngine: "voicevox",
     wantEngine: "voicevox",
+    layoutAt: 1000,
   };
 
   it("台本もエンジンも変わっていなければ飛ばす", () => {
@@ -371,6 +372,22 @@ describe("音声合成をやり直すかの判定（工程を飛ばす条件）"
 
   it("--force は無条件にやり直す", () => {
     expect(needsSynthesis({ ...base, force: true }).reason).toBe("force");
+  });
+
+  // config を変えてもタイムラインが作り直されず、冒頭の配置が古いままになった
+  it("config や合成コードが新しければやり直す", () => {
+    expect(needsSynthesis({ ...base, layoutAt: 3000 })).toEqual({
+      needed: true,
+      reason: "layout-changed",
+    });
+  });
+
+  it("props だけ古い場合も拾う（timeline だけ新しくても作り直す）", () => {
+    expect(needsSynthesis({ ...base, propsAt: 500, layoutAt: 1500 }).needed).toBe(true);
+  });
+
+  it("タイムラインが config より新しければ飛ばす", () => {
+    expect(needsSynthesis({ ...base, layoutAt: 1999 }).needed).toBe(false);
   });
 });
 
