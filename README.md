@@ -105,7 +105,8 @@ npm run publish-check -- --topic <id>
 | 音ズレ | 通しで1回見る。字幕と音声がずれていないか | `scripts/synthesize.ts` の問題。plan.md の M2 に戻る |
 
 ```bash
-npm run open      # 出力フォルダを開く（--topic 省略で最新のもの）
+npm run open            # 出力フォルダを開く（--topic 省略で最新のもの）
+npm run check:frames -- --topic <id>   # フレームの欠落を機械で見る（下記）
 ```
 
 Studio のプレビューと最終レンダーは一致しないので、**実機確認は mp4 で行う**。
@@ -277,6 +278,20 @@ slug を変えるとローテートがずれる。
 **レンダーが遅くなってきた**
 `--section N` で部分レンダーする。それでも厳しければ Remotion Lambda を検討
 （plan.md の未決事項）。1本あたりの実測は 70秒 / 1080x1920 で**約2分**（ローカル）。
+
+**再生すると文字がチカチカする / 一瞬消える**
+まず動画側かプレイヤー側かを切り分ける。
+
+```bash
+npm run check:frames -- --topic <id>          # フック区間を1フレームずつ見る
+npm run check:frames -- --topic <id> --all    # 全編を0.5秒ごと（遅い）
+```
+
+「明るいピクセルの割合」が落ちるフレームを探す。**欠落なしと出たなら動画は正常**で、
+QuickTime などがデコード中に再描画しているだけ（実機やアプリでは出ない）。
+欠落が出たら、その秒数を `npm run still -- --at <秒>` で撮って原因を見る。
+過去の原因はフォント計測（`fitText`）が NaN を返してそのフレームだけ
+`fontSize` が壊れるケース。`clampFontSize` で塞いである。
 
 **ブラウザの起動に失敗する**
 `scripts/lib/browser.ts` が環境の Chromium を探す。通常の Chrome バイナリは

@@ -24,6 +24,7 @@
 | `npm run publish -- --topic <id>` | 投稿テキスト生成 |
 | `npm run publish-check -- --topic <id>` | 投稿前ゲート |
 | `npm run snapshot[:check] -- --topic <id>` | 固定フレームのスナップショット |
+| `npm run check:frames -- --topic <id> [--all]` | フレームの欠落（文字が1枚だけ消える事故）を機械で見る |
 | `npm run open [-- --topic <id>]` | 出力フォルダを開く（省略時は最新） |
 | `npm run record -- --topic <id>` | **投稿した後**に叩く。dedupe の記録 |
 | `npm run typecheck` / `npm run test` | 型 / ユニットテスト |
@@ -57,6 +58,9 @@
   **Google Fonts を `@import` しない**（オフラインで落ちる以前に、
   失敗時に代替フォントで無言にレンダーされるのが最悪）
 - `src/` を触ったら `npm run snapshot -- --topic <id>` の差分を確認する
+- **フォントサイズを実測から決める処理を足したら、返り値が必ず有限になることを
+  保証する**（`clampFontSize`）。NaN が `fontSize` に入るとそのフレームだけ
+  文字が消えて「チカチカする」動画になる。`npm run check:frames` で検出できる
 
 ### 生成物
 

@@ -26,7 +26,8 @@
     "record": "tsx scripts/record-published.ts",
     "tts:probe": "tsx scripts/dev/tts-probe.ts",
     "tts:voices": "tsx scripts/dev/tts-voices.ts",
-    "open": "tsx scripts/open-out.ts"
+    "open": "tsx scripts/open-out.ts",
+    "check:frames": "tsx scripts/check-frames.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-jp": "5.3.0",

@@ -23,6 +23,10 @@ import { needsSynthesis } from "../scripts/lib/fresh.ts";
 import { durationFromQuery, pickStyleId, type AudioQuery, type SpeakerInfo } from "../scripts/tts/voicevox.ts";
 import { creditFor } from "../scripts/publish.ts";
 import { config } from "../config/pipeline.ts";
+import { clampFontSize } from "../src/lib/fit.ts";
+import { brightPixelRatio, decodePng, luminance } from "../scripts/lib/png.ts";
+import { findDropouts, MIN_BRIGHT_RATIO } from "../scripts/check-frames.ts";
+import { deflateSync } from "node:zlib";
 import { existsSync } from "node:fs";
 import { outDir } from "../scripts/lib/paths.ts";
 import { join } from "node:path";
@@ -448,5 +452,136 @@ describe("音声のクレジット表記", () => {
   it("mock（無音）ならクレジットは入らない", () => {
     expect(creditFor("mock")).toBeNull();
     expect(buildPublish(sample, null).tiktok.caption).not.toContain("VOICEVOX");
+  });
+});
+
+describe("フォントサイズのクランプ（文字が消える唯一の経路）", () => {
+  const bounds = { minSize: 60, maxSize: 128 };
+
+  it("範囲内の実測値はそのまま", () => {
+    expect(clampFontSize(100, bounds)).toBe(100);
+  });
+
+  it("大きすぎれば上限に収める", () => {
+    expect(clampFontSize(500, bounds)).toBe(128);
+  });
+
+  it("小さすぎれば下限に収める", () => {
+    expect(clampFontSize(10, bounds)).toBe(60);
+  });
+
+  // ここが本題。NaN / Infinity / 0 が抜けると fontSize: NaN になり、
+  // そのフレームだけ文字が消えて「チカチカする」動画になる
+  it("NaN は上限に倒す（NaN を返すと文字が消える）", () => {
+    expect(clampFontSize(Number.NaN, bounds)).toBe(128);
+  });
+
+  it("Infinity は上限に倒す", () => {
+    expect(clampFontSize(Number.POSITIVE_INFINITY, bounds)).toBe(128);
+  });
+
+  it("0 と負数は上限に倒す", () => {
+    expect(clampFontSize(0, bounds)).toBe(128);
+    expect(clampFontSize(-20, bounds)).toBe(128);
+  });
+
+  it("どんな入力でも必ず有限で正の値を返す", () => {
+    const inputs = [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 0, -1, 1e9, 0.5];
+    for (const input of inputs) {
+      const size = clampFontSize(input, bounds);
+      expect(Number.isFinite(size)).toBe(true);
+      expect(size).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("フレームの中身を機械で見る（PNG デコード）", () => {
+  /** 2x2 の RGBA PNG を組む。フィルタなし */
+  const makePng = (rgba: number[][]): Buffer => {
+    const width = 2;
+    const height = 2;
+    const chunk = (type: string, body: Buffer): Buffer => {
+      const head = Buffer.alloc(8);
+      head.writeUInt32BE(body.length, 0);
+      head.write(type, 4, "ascii");
+      // CRC はデコーダが見ないのでゼロで足りる
+      return Buffer.concat([head, body, Buffer.alloc(4)]);
+    };
+    const ihdr = Buffer.alloc(13);
+    ihdr.writeUInt32BE(width, 0);
+    ihdr.writeUInt32BE(height, 4);
+    ihdr.writeUInt8(8, 8); // bitDepth
+    ihdr.writeUInt8(6, 9); // colorType RGBA
+    const raw = Buffer.concat(
+      [0, 1].map((y) =>
+        Buffer.concat([
+          Buffer.from([0]), // フィルタ 0
+          Buffer.from([...(rgba[y * 2] ?? []), ...(rgba[y * 2 + 1] ?? [])]),
+        ]),
+      ),
+    );
+    return Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", ihdr),
+      chunk("IDAT", deflateSync(raw)),
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+  };
+
+  const white = [255, 255, 255, 255];
+  const black = [0, 0, 0, 255];
+
+  it("ピクセルを復元できる", () => {
+    const image = decodePng(makePng([white, black, black, white]));
+    expect(image.width).toBe(2);
+    expect(image.height).toBe(2);
+    expect([...image.pixels.slice(0, 4)]).toEqual(white);
+    expect([...image.pixels.slice(4, 8)]).toEqual(black);
+  });
+
+  it("PNG でないものは落とす", () => {
+    expect(() => decodePng(Buffer.from("not a png"))).toThrow();
+  });
+
+  it("明るいピクセルの割合を数えられる", () => {
+    expect(brightPixelRatio(decodePng(makePng([white, black, black, white])))).toBe(0.5);
+    expect(brightPixelRatio(decodePng(makePng([black, black, black, black])))).toBe(0);
+    expect(brightPixelRatio(decodePng(makePng([white, white, white, white])))).toBe(1);
+  });
+
+  it("輝度は緑に重みがある（Rec.601）", () => {
+    expect(luminance(0, 255, 0)).toBeGreaterThan(luminance(255, 0, 0));
+  });
+});
+
+describe("フレームの欠落検出", () => {
+  const stable = Array.from({ length: 10 }, (_, frame) => ({ frame, ratio: 0.04 }));
+
+  it("安定していれば何も出ない", () => {
+    expect(findDropouts(stable)).toEqual([]);
+  });
+
+  it("1フレームだけ文字が消えたら拾う（これがチカチカ）", () => {
+    const withGap = stable.map((s) => (s.frame === 4 ? { ...s, ratio: 0.001 } : s));
+    expect(findDropouts(withGap).map((d) => d.frame)).toEqual([4]);
+  });
+
+  it("中央値から大きく落ちたフレームも拾う（消えかけ）", () => {
+    const dim = stable.map((s) => (s.frame === 7 ? { ...s, ratio: 0.02 } : s));
+    expect(findDropouts(dim).map((d) => d.frame)).toEqual([7]);
+  });
+
+  it("下線が伸びるような緩やかな増減は欠落にしない", () => {
+    const growing = Array.from({ length: 10 }, (_, frame) => ({
+      frame,
+      ratio: 0.04 + frame * 0.002,
+    }));
+    expect(findDropouts(growing)).toEqual([]);
+  });
+
+  it("全フレームが真っ暗なら全部拾う（レンダー事故）", () => {
+    const blank = stable.map((s) => ({ ...s, ratio: 0 }));
+    expect(findDropouts(blank)).toHaveLength(10);
+    expect(MIN_BRIGHT_RATIO).toBeGreaterThan(0);
   });
 });
