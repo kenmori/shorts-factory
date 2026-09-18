@@ -227,11 +227,24 @@ export const lintTimeline = (script: Script, timeline: Timeline): Finding[] => {
     );
   }
 
+  // --- 冒頭の無音 ---
+  // 静止画で始めると「読み込み中」に見えて、最初の2秒を捨てることになる
+  const firstCaption = timeline.captions[0];
+  if (!firstCaption) {
+    add("error", "opening-silence", "字幕が1つも無い（音声合成が空）");
+  } else if (firstCaption.startMs / 1000 > config.maxOpeningSilenceSec) {
+    add(
+      "error",
+      "opening-silence",
+      `冒頭 ${(firstCaption.startMs / 1000).toFixed(2)}秒 まで音が始まらない` +
+        `（上限 ${config.maxOpeningSilenceSec}秒）。静止画で始めず、0秒からナレーションを流して` +
+        "フックはその上に重ねる（config の hookOverlaySec）",
+    );
+  }
+
   // --- 視覚変化の間隔 ---
-  const events: { sec: number; what: string }[] = [
-    { sec: 0, what: "hook" },
-    { sec: timeline.hook.durationSec, what: "セクション1の開始" },
-  ];
+  // セクションの開始は下のループで入るので、ここは先頭のフックだけ
+  const events: { sec: number; what: string }[] = [{ sec: 0, what: "hook" }];
   for (const [i, section] of timeline.sections.entries()) {
     events.push({ sec: section.startSec, what: `セクション${i + 1}の開始` });
     const authored = script.sections[i];

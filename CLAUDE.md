@@ -54,6 +54,8 @@
 - **セーフエリアの数値を推測で書かない。** 実機確認した値だけを
   `safe-area.ts` に入れ、`verified: true` にする
 - 秒数をテンプレに書かない。尺は `content/timeline/<id>.json`（生成物）から来る
+- **冒頭に無音の静止画期間を作らない。** ナレーションは0秒から流し、フックは
+  その上に重ねる（`config.hookOverlaySec`）。lint の `opening-silence` が落とす
 - フォントは `public/fonts/` のローカルファイルを読む。
   **Google Fonts を `@import` しない**（オフラインで落ちる以前に、
   失敗時に代替フォントで無言にレンダーされるのが最悪）

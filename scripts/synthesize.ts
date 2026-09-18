@@ -112,9 +112,10 @@ export const synthesizeTopic = async (
     };
   };
 
-  // フックはナレーションに乗せない（無音で成立させる。plan.md 3.5節）
-  const hook: SegmentTiming = { startSec: 0, durationSec: config.hookDurationSec };
-  let cursor = hook.durationSec;
+  // フックは**重ねる**だけ。無音の静止画期間は作らない。
+  // ナレーションは 0 秒から始める（「まだ始まっていない画面」を作らないため）
+  const hook: SegmentTiming = { startSec: 0, durationSec: config.hookOverlaySec };
+  let cursor = 0;
 
   const sections: SegmentTiming[] = [];
   for (const segments of sectionSegments) {

@@ -124,7 +124,8 @@ const main = async (): Promise<void> => {
   const [min, max] = config.durationRangeSec;
   // 典型的な形（4セクション + outro）の末尾余白を引く
   const tails = config.sectionTailSec * 5;
-  const budget = (target: number): number => target - config.hookDurationSec - tails;
+  // フックは重ねるだけなので尺は消費しない。引くのは末尾余白だけ
+  const budget = (target: number): number => target - tails;
   /** 尺 target 秒に収まる文字数。チャンク長 perChunk 文字で割った場合 */
   const charsFor = (target: number, perChunk: number): number =>
     Math.round(budget(target) / (secPerChar + silencePerChunk / perChunk));

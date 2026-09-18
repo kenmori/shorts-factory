@@ -44,7 +44,10 @@ export const Hook: React.FC<{ variantOverride?: "question" | "number" | "negatio
   });
 
   return (
-    <AbsoluteFill>
+    // 下のセクションに重なるので背景を塗る。1枚のカードとして読ませる
+    <AbsoluteFill
+      style={{ background: `linear-gradient(160deg, ${palette.bg} 0%, ${palette.bgAlt} 100%)` }}
+    >
       <SafeFrame>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           {/* evergreen のバッジは既に製品名とバージョンを出すので重ねない */}

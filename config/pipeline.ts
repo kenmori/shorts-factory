@@ -22,14 +22,26 @@ export type PipelineConfig = {
   durationRangeSec: readonly [number, number];
   /** Creator Rewards の対象条件。publish-check のハード判定に使う */
   minPublishableDurationSec: number;
-  /** フック（無音で成立させる全画面テキスト）の尺。ナレーションは乗せない */
-  hookDurationSec: number;
+  /**
+   * フックを重ねておく尺。
+   *
+   * **無音の静止画期間は作らない。** 動画はフレーム0からナレーションが始まり、
+   * フックはその上に重なって出る（この秒数だけ）。フレーム0で読めることと
+   * 「すぐ始まる」ことを両立させるため。
+   */
+  hookOverlaySec: number;
   /** セクション間の重なり。境界で切られないように次の見出しを前セクションに重ねる */
   sectionOverlapSec: number;
   /** セクションの末尾に足す余白。最後の音節で切り替わらないように */
   sectionTailSec: number;
   /** 視覚変化の最大間隔。これを超えると lint で落ちる */
   maxVisualStillSec: number;
+  /**
+   * 冒頭に許す無音の長さ。**動画は最初の2秒で決まる。**
+   * ここを超えて音が始まらない動画は「まだ始まっていない画面」に見えるので
+   * lint で落とす（フックは静止画として置くのではなく重ねる）
+   */
+  maxOpeningSilenceSec: number;
   /** ナレーションに対する BGM の音量比 */
   bgmVolume: number;
   platforms: readonly Platform[];
@@ -68,10 +80,11 @@ export const config: PipelineConfig = {
   fps: 30,
   durationRangeSec: [65, 75],
   minPublishableDurationSec: 60,
-  hookDurationSec: 2,
+  hookOverlaySec: 1.2,
   sectionOverlapSec: 0.6,
   sectionTailSec: 0.3,
   maxVisualStillSec: 2,
+  maxOpeningSilenceSec: 0.5,
   bgmVolume: 0.1,
   platforms: ["tiktok", "shorts", "reels"],
   voicevox: {

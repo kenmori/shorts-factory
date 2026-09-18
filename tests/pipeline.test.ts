@@ -231,6 +231,30 @@ describe("lint（実測が必要なもの）", () => {
     generatedAt: "2026-09-18T00:00:00Z",
   };
 
+  it("冒頭に無音の静止画期間があると落ちる（動画は最初の2秒で決まる）", () => {
+    const silentOpening = {
+      ...timeline,
+      captions: [
+        { text: "おそい", startMs: 2000, endMs: 3000, timestampMs: 2000, confidence: null },
+      ],
+    };
+    expect(lintTimeline(sample, silentOpening).map((f) => f.rule)).toContain("opening-silence");
+  });
+
+  it("0秒から音が始まっていれば通る", () => {
+    const immediate = {
+      ...timeline,
+      captions: [{ text: "すぐ", startMs: 0, endMs: 1000, timestampMs: 0, confidence: null }],
+    };
+    expect(lintTimeline(sample, immediate).map((f) => f.rule)).not.toContain("opening-silence");
+  });
+
+  it("字幕が1つも無ければ落ちる", () => {
+    expect(lintTimeline(sample, { ...timeline, captions: [] }).map((f) => f.rule)).toContain(
+      "opening-silence",
+    );
+  });
+
   it("字幕もテロップも無ければ「画面が動かない」で落ちる", () => {
     const findings = lintTimeline(sample, timeline);
     expect(findings.map((f) => f.rule)).toContain("visual-still");

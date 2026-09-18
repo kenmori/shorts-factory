@@ -72,14 +72,6 @@ const Body: React.FC = () => {
     <AbsoluteFill lang={script.locale}>
       <Background />
 
-      <Sequence
-        from={0}
-        durationInFrames={toDurationFrames(timeline.hook.durationSec, fps)}
-        layout="none"
-      >
-        <Hook />
-      </Sequence>
-
       {timeline.sections.map((timing, i) => {
         const section = script.sections[i];
         if (!section) {
@@ -105,6 +97,19 @@ const Body: React.FC = () => {
         layout="none"
       >
         <Outro />
+      </Sequence>
+
+      {/*
+        フックはセクションの**上**に重ねる。0秒からナレーションが始まっているので
+        「まだ始まっていない画面」にはならず、かつフレーム0で読める。
+        字幕レイヤーはさらに上なので、重なっている間も何を言っているかは見える。
+      */}
+      <Sequence
+        from={0}
+        durationInFrames={toDurationFrames(timeline.hook.durationSec, fps)}
+        layout="none"
+      >
+        <Hook />
       </Sequence>
 
       <SubtitleLayer />
